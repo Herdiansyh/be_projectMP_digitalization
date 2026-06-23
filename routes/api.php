@@ -20,3 +20,6 @@ Route::prefix('auth')->group(function () {
     Route::get('/me', [AuthController::class, 'me'])->middleware('auth:api');
     Route::post('/refresh', [AuthController::class, 'refresh'])->middleware('auth:api');
 });
+Route::middleware(['auth:api', 'role:HR Admin'])->group(function () {
+    Route::apiResource('operators', \App\Http\Controllers\OperatorController::class);
+});
