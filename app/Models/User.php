@@ -18,12 +18,17 @@ class User extends Authenticatable implements JWTSubject
      * @var list<string>
      */
     protected $fillable = [
-        'role_id',
         'name',
         'email',
         'password',
-        'is_active',
-        'last_login_at',
+        'npk',
+        'department_id',
+        'section_id',
+        'role_level_id',
+        'username',
+        'photo',
+        'director_id',
+        'is_admin',
     ];
 
     /**
@@ -44,17 +49,48 @@ class User extends Authenticatable implements JWTSubject
     {
         return [
             'password' => 'hashed',
-            'is_active' => 'boolean',
             'last_login_at' => 'datetime',
         ];
     }
 
     /**
-     * Get the role that owns the user.
+     * Get the department that owns the user.
      */
-    public function role(): BelongsTo
+    public function department(): BelongsTo
     {
-        return $this->belongsTo(Role::class);
+        return $this->belongsTo(Department::class);
+    }
+
+    /**
+     * Get the section that owns the user.
+     */
+    public function section(): BelongsTo
+    {
+        return $this->belongsTo(Section::class);
+    }
+
+    /**
+     * Get the role level that owns the user.
+     */
+    public function roleLevel(): BelongsTo
+    {
+        return $this->belongsTo(RoleLevel::class);
+    }
+
+    /**
+     * Get the director that owns the user.
+     */
+    public function director(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'director_id');
+    }
+
+    /**
+     * Get the subordinates for the user.
+     */
+    public function subordinates()
+    {
+        return $this->hasMany(User::class, 'director_id');
     }
 
     /**

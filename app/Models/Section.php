@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Role extends Model
+class Section extends Model
 {
     use HasFactory;
 
@@ -15,7 +15,7 @@ class Role extends Model
     ];
 
     /**
-     * Get the users for the role.
+     * Get the users for the section.
      */
     public function users(): HasMany
     {

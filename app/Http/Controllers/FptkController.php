@@ -1,0 +1,443 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Http\Controllers\Controller;
+use App\Models\Requisition;
+use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Validator;
+
+class FptkController extends Controller
+{
+    /**
+     * Display a listing of the requisitions.
+     */
+    public function index(Request $request): JsonResponse
+    {
+        $user = auth()->user();
+        $query = Requisition::orderBy('request_date', 'desc');
+
+        if ($user) {
+            $roleName = $user->roleLevel?->name;
+            if (!in_array($roleName, ['Admin', 'HR Admin'])) {
+                $query->where(function ($q) use ($user) {
+                    $q->where('requester_name', $user->name)
+                      ->orWhere('manager', $user->name)
+                      ->orWhere('division', $user->name)
+                      ->orWhere('director', $user->name)
+                      ->orWhere('supervisor', $user->name);
+                });
+            }
+        }
+
+        // Filter by status if provided
+        if ($request->has('status')) {
+            $query->byStatus($request->status);
+        }
+
+        if ($request->has('exclude_status')) {
+            $excludeStatuses = explode(',', $request->exclude_status);
+            $query->whereNotIn('approval_status', $excludeStatuses);
+        }
+
+        // Filter by manager if provided
+        if ($request->has('manager')) {
+            $query->byManager($request->manager);
+        }
+
+        // Filter by division if provided
+        if ($request->has('division')) {
+            $query->byDivision($request->division);
+        }
+
+        // Filter by director if provided
+        if ($request->has('director')) {
+            $query->byDirector($request->director);
+        }
+
+        // Filter by supervisor if provided
+        if ($request->has('supervisor')) {
+            $query->bySupervisor($request->supervisor);
+        }
+
+        $requisitions = $query->paginate($request->per_page ?? 15);
+
+        return response()->json([
+            'success' => true,
+            'data' => $requisitions,
+        ]);
+    }
+
+    /**
+     * Store a newly created requisition in storage.
+     */
+    public function store(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'requester_name' => 'required|string|max:255',
+            'request_date' => 'required|date',
+            'group' => 'nullable|string|max:255',
+            'department' => 'nullable|string|max:255',
+            'section' => 'nullable|string|max:255',
+            'type' => 'nullable|string|max:255',
+            'position' => 'nullable|string|max:255',
+            'status' => 'nullable|string|max:255',
+            'duration' => 'nullable|string|max:255',
+            'level' => 'nullable|string|max:255',
+            'cost_employee' => 'nullable|string|max:255',
+            'fulfilment_time' => 'nullable|string|max:255',
+            'education' => 'nullable|string|max:255',
+            'max_age' => 'nullable|integer|min:18',
+            'min_experience' => 'nullable|integer|min:0',
+            'technical_skill' => 'nullable|array',
+            'soft_skill' => 'nullable|array',
+            'description' => 'nullable|string',
+            'cost_center' => 'nullable|string|max:255',
+            'objective' => 'nullable|string|max:255',
+            'reason' => 'nullable|string',
+            'employee_out' => 'nullable|string|max:255',
+            'manpower_plan' => 'nullable|string',
+            'unplanned_reason' => 'nullable|string',
+            'manager' => 'nullable|string|max:255',
+            'division' => 'nullable|string|max:255',
+            'director' => 'nullable|string|max:255',
+            'supervisor' => 'nullable|string|max:255',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        // Generate requisition number
+        $noReq = 'FPTK-' . date('Ymd') . '-' . str_pad(Requisition::count() + 1, 4, '0', STR_PAD_LEFT);
+
+        $requisition = Requisition::create([
+            'no_req' => $noReq,
+            'requester_name' => $request->requester_name,
+            'request_date' => $request->request_date,
+            'group' => $request->group,
+            'department' => $request->department,
+            'section' => $request->section,
+            'type' => $request->type,
+            'position' => $request->position,
+            'status' => $request->status,
+            'duration' => $request->duration,
+            'level' => $request->level,
+            'cost_employee' => $request->cost_employee,
+            'fulfilment_time' => $request->fulfilment_time,
+            'education' => $request->education,
+            'max_age' => $request->max_age,
+            'min_experience' => $request->min_experience,
+            'technical_skill' => $request->technical_skill,
+            'soft_skill' => $request->soft_skill,
+            'description' => $request->description,
+            'cost_center' => $request->cost_center,
+            'objective' => $request->objective,
+            'reason' => $request->reason,
+            'employee_out' => $request->employee_out,
+            'manpower_plan' => $request->manpower_plan,
+            'unplanned_reason' => $request->unplanned_reason,
+            'manager' => $request->manager,
+            'division' => $request->division,
+            'director' => $request->director,
+            'supervisor' => $request->supervisor,
+            'approval_status' => 'Menunggu Approval Manager',
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Requisition created successfully',
+            'data' => $requisition,
+        ], 201);
+    }
+
+    /**
+     * Display the specified requisition.
+     */
+    public function show(string $noReq): JsonResponse
+    {
+        $requisition = Requisition::findOrFail($noReq);
+
+        if (!$this->canAccessRequisition($requisition)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized access to this FPTK',
+            ], 403);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $requisition,
+        ]);
+    }
+
+    /**
+     * Update the specified requisition in storage.
+     */
+    public function update(Request $request, string $noReq): JsonResponse
+    {
+        $requisition = Requisition::findOrFail($noReq);
+
+        if (!$this->canAccessRequisition($requisition)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized access to this FPTK',
+            ], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'requester_name' => 'sometimes|required|string|max:255',
+            'request_date' => 'sometimes|required|date',
+            'group' => 'nullable|string|max:255',
+            'department' => 'nullable|string|max:255',
+            'section' => 'nullable|string|max:255',
+            'type' => 'nullable|string|max:255',
+            'position' => 'nullable|string|max:255',
+            'status' => 'nullable|string|max:255',
+            'duration' => 'nullable|string|max:255',
+            'level' => 'nullable|string|max:255',
+            'cost_employee' => 'nullable|string|max:255',
+            'fulfilment_time' => 'nullable|string|max:255',
+            'education' => 'nullable|string|max:255',
+            'max_age' => 'nullable|integer|min:18',
+            'min_experience' => 'nullable|integer|min:0',
+            'technical_skill' => 'nullable|array',
+            'soft_skill' => 'nullable|array',
+            'description' => 'nullable|string',
+            'cost_center' => 'nullable|string|max:255',
+            'objective' => 'nullable|string|max:255',
+            'reason' => 'nullable|string',
+            'employee_out' => 'nullable|string|max:255',
+            'manpower_plan' => 'nullable|string',
+            'unplanned_reason' => 'nullable|string',
+            'manager'   => 'nullable|string|max:255',
+            'division'  => 'nullable|string|max:255',
+            'director'  => 'nullable|string|max:255',
+            'supervisor'=> 'nullable|string|max:255',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $requisition->update($request->only([
+            'requester_name',
+            'request_date',
+            'group',
+            'department',
+            'section',
+            'type',
+            'position',
+            'status',
+            'duration',
+            'level',
+            'cost_employee',
+            'fulfilment_time',
+            'education',
+            'max_age',
+            'min_experience',
+            'technical_skill',
+            'soft_skill',
+            'description',
+            'cost_center',
+            'objective',
+            'reason',
+            'employee_out',
+            'manpower_plan',
+            'unplanned_reason',
+            'manager',    
+            'division',   
+            'director',  
+            'supervisor', 
+        ]));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Requisition updated successfully',
+            'data' => $requisition,
+        ]);
+    }
+
+    /**
+     * Remove the specified requisition from storage.
+     */
+    public function destroy(string $noReq): JsonResponse
+    {
+        $requisition = Requisition::findOrFail($noReq);
+
+        if (!$this->canAccessRequisition($requisition)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized access to this FPTK',
+            ], 403);
+        }
+
+        $requisition->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Requisition deleted successfully',
+        ]);
+    }
+
+    /**
+     * Get requisitions pending approval for the current user.
+     */
+    public function pendingApproval(Request $request): JsonResponse
+    {
+        $user = auth()->user();
+        
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized',
+            ], 401);
+        }
+
+        $query = Requisition::orderBy('request_date', 'desc');
+
+        // Filter based on user role level
+        if ($user->roleLevel && $user->roleLevel->name === 'Director') {
+            $query->byStatus('Menunggu Approval Director')->byDirector($user->name);
+        } elseif ($user->roleLevel && $user->roleLevel->name === 'Division Head') {
+            $query->byStatus('Menunggu Approval Division Head')->byDivision($user->name);
+        } elseif ($user->roleLevel && $user->roleLevel->name === 'Manager') {
+            $query->byStatus('Menunggu Approval Manager')->byManager($user->name);
+        }
+
+        $requisitions = $query->paginate($request->per_page ?? 15);
+
+        return response()->json([
+            'success' => true,
+            'data' => $requisitions,
+        ]);
+    }
+
+    /**
+     * Return FPTKs where the current user has already taken action (approve/reject).
+     * Regardless of the current overall approval_status of the FPTK.
+     */
+    public function approvalHistory(Request $request): JsonResponse
+    {
+        $user = auth()->user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized',
+            ], 401);
+        }
+
+        $query = Requisition::orderBy('request_date', 'desc');
+        $roleName = $user->roleLevel?->name;
+
+        // Show FPTKs where the user has already acted — i.e. their _approved_at timestamp is set
+        if ($roleName === 'Manager') {
+            $query->where('manager', $user->name)
+                  ->whereNotNull('manager_approved_at');
+        } elseif ($roleName === 'Division Head') {
+            $query->where('division', $user->name)
+                  ->whereNotNull('division_approved_at');
+        } elseif ($roleName === 'Director') {
+            $query->where('director', $user->name)
+                  ->whereNotNull('director_approved_at');
+        } else {
+            // Non-approver roles: return empty
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'data' => [],
+                    'current_page' => 1,
+                    'last_page' => 1,
+                    'per_page' => 15,
+                    'total' => 0,
+                ],
+            ]);
+        }
+
+        $requisitions = $query->paginate($request->per_page ?? 15);
+
+        return response()->json([
+            'success' => true,
+            'data' => $requisitions,
+        ]);
+    }
+
+    public function getApprovers(): JsonResponse
+{
+    $users = \App\Models\User::with('roleLevel')
+        ->whereHas('roleLevel', function ($q) {
+            $q->whereIn('name', ['Manager', 'Division Head', 'Director']);
+        })
+        ->select('id', 'name', 'npk', 'role_level_id')
+        ->orderBy('name')
+        ->get();
+
+    return response()->json([
+        'success' => true,
+        'data' => [
+           'managers' => $users->filter(
+                        fn($u) => $u->roleLevel?->name === 'Manager'
+            )->values(),
+            'division_heads' => $users->filter(
+                fn($u) => $u->roleLevel?->name === 'Division Head'
+            )->values(),
+            'directors' => $users->filter(
+                fn($u) => $u->roleLevel?->name === 'Director'
+            )->values(),
+        ],
+    ]);
+}
+
+    /**
+     * Check if user has access to the requisition.
+     */
+    private function canAccessRequisition(Requisition $requisition): bool
+    {
+        $user = auth()->user();
+        if (!$user) return false;
+
+        $roleName = $user->roleLevel?->name;
+        if (in_array($roleName, ['Admin', 'HR Admin'])) {
+            return true;
+        }
+
+        $userName = $user->name;
+        return in_array($userName, [
+            $requisition->requester_name,
+            $requisition->manager,
+            $requisition->division,
+            $requisition->director,
+            $requisition->supervisor,
+        ]);
+    }
+    /**
+     * Display the print view for the specified requisition.
+     */
+    public function printView(string $noReq)
+    {
+        $requisition = Requisition::findOrFail($noReq);
+        
+        // As per user request, this is a public endpoint for internal use, 
+        // so we don't enforce authentication here.
+        
+        // Decode JSON arrays if they are strings in the database
+        if (is_string($requisition->technical_skill)) {
+            $requisition->technical_skill = json_decode($requisition->technical_skill, true) ?: explode(',', $requisition->technical_skill);
+        }
+        if (is_string($requisition->soft_skill)) {
+            $requisition->soft_skill = json_decode($requisition->soft_skill, true) ?: explode(',', $requisition->soft_skill);
+        }
+
+        return view('print.fptk', compact('requisition'));
+    }
+}

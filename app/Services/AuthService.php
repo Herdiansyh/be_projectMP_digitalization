@@ -16,7 +16,7 @@ class AuthService
      */
     public function login(array $credentials): array
     {
-        $user = User::with('role')
+        $user = User::with(['roleLevel', 'department', 'section'])
             ->where('email', $credentials['email'])
             ->first();
 
@@ -24,9 +24,7 @@ class AuthService
             throw new Exception('Invalid credentials');
         }
 
-        if (!$user->is_active) {
-            throw new Exception('Account is inactive');
-        }
+       
 
         if (!Hash::check($credentials['password'], $user->password)) {
             throw new Exception('Invalid credentials');
@@ -54,7 +52,7 @@ class AuthService
      */
     public function me(): AuthUserResource
     {
-        $user = User::with('role')
+        $user = User::with(['roleLevel', 'department', 'section'])
             ->find(Auth::id());
 
         if (!$user) {
@@ -71,7 +69,7 @@ class AuthService
     {
         $newToken = JWTAuth::refresh(JWTAuth::getToken());
 
-        $user = User::with('role')
+        $user = User::with(['roleLevel', 'department', 'section'])
             ->find(Auth::id());
 
         if (!$user) {
