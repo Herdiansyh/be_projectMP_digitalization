@@ -36,6 +36,21 @@ class UserResource extends JsonResource
                 'name' => $this->director->name,
                 'npk'  => $this->director->npk,
             ] : null),
+            'approver_manager' => $this->whenLoaded('approverManager', fn() => $this->approverManager ? [
+                'id'   => $this->approverManager->id,
+                'name' => $this->approverManager->name,
+                'npk'  => $this->approverManager->npk,
+            ] : null),
+            'approver_division' => $this->whenLoaded('approverDivision', fn() => $this->approverDivision ? [
+                'id'   => $this->approverDivision->id,
+                'name' => $this->approverDivision->name,
+                'npk'  => $this->approverDivision->npk,
+            ] : null),
+            'approver_director' => $this->whenLoaded('approverDirector', fn() => $this->approverDirector ? [
+                'id'   => $this->approverDirector->id,
+                'name' => $this->approverDirector->name,
+                'npk'  => $this->approverDirector->npk,
+            ] : null),
             'last_login_at' => $this->last_login_at?->toISOString(),
             'created_at'   => $this->created_at->toISOString(),
             'updated_at'   => $this->updated_at->toISOString(),

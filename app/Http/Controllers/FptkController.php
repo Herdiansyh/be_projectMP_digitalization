@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Requisition;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 class FptkController extends Controller
@@ -99,9 +100,6 @@ class FptkController extends Controller
             'employee_out' => 'nullable|string|max:255',
             'manpower_plan' => 'nullable|string',
             'unplanned_reason' => 'nullable|string',
-            'manager' => 'nullable|string|max:255',
-            'division' => 'nullable|string|max:255',
-            'director' => 'nullable|string|max:255',
             'supervisor' => 'nullable|string|max:255',
         ]);
 
@@ -113,8 +111,24 @@ class FptkController extends Controller
             ], 422);
         }
 
-        // Generate requisition number
-        $noReq = 'FPTK-' . date('Ymd') . '-' . str_pad(Requisition::count() + 1, 4, '0', STR_PAD_LEFT);
+        $noReq = DB::transaction(function () {
+        $count = Requisition::whereDate('request_date', today())->lockForUpdate()->count();
+        return 'FPTK-' . now()->format('Ymd') . '-' . str_pad($count + 1, 4, '0', STR_PAD_LEFT);
+        });
+        $user = auth()->user()->load(['approverManager', 'approverDivision', 'approverDirector']);
+        $manager  = $user->approverManager?->name;
+        $division = $user->approverDivision?->name;
+        $director = $user->approverDirector?->name;
+
+        if ($manager) {
+            $initialStatus = 'Menunggu Approval Manager';
+        } elseif ($division) {
+            $initialStatus = 'Menunggu Approval Division Head';
+        } elseif ($director) {
+            $initialStatus = 'Menunggu Approval Director';
+        } else {
+            $initialStatus = 'Approved';
+        }
 
         $requisition = Requisition::create([
             'no_req' => $noReq,
@@ -142,11 +156,11 @@ class FptkController extends Controller
             'employee_out' => $request->employee_out,
             'manpower_plan' => $request->manpower_plan,
             'unplanned_reason' => $request->unplanned_reason,
-            'manager' => $request->manager,
-            'division' => $request->division,
-            'director' => $request->director,
+            'manager' => $manager,
+            'division' => $division,
+            'director' => $director,
             'supervisor' => $request->supervisor,
-            'approval_status' => 'Menunggu Approval Manager',
+            'approval_status' => $initialStatus,
         ]);
 
         return response()->json([
@@ -215,9 +229,6 @@ class FptkController extends Controller
             'employee_out' => 'nullable|string|max:255',
             'manpower_plan' => 'nullable|string',
             'unplanned_reason' => 'nullable|string',
-            'manager'   => 'nullable|string|max:255',
-            'division'  => 'nullable|string|max:255',
-            'director'  => 'nullable|string|max:255',
             'supervisor'=> 'nullable|string|max:255',
         ]);
 
@@ -254,9 +265,6 @@ class FptkController extends Controller
             'employee_out',
             'manpower_plan',
             'unplanned_reason',
-            'manager',    
-            'division',   
-            'director',  
             'supervisor', 
         ]));
 
@@ -314,8 +322,8 @@ class FptkController extends Controller
             $query->byStatus('Menunggu Approval Manager')->byManager($user->name);
         }
 
-        $requisitions = $query->paginate($request->per_page ?? 15);
-
+        $perPage = min((int) ($request->per_page ?? 15), 100); // maksimal 100
+        $requisitions = $query->paginate($perPage);
         return response()->json([
             'success' => true,
             'data' => $requisitions,

@@ -34,6 +34,9 @@ class UpdateUserRequest extends FormRequest
             'role_level_id'  => 'nullable|exists:role_levels,id',
             'director_id'    => 'nullable|exists:users,id',
             'is_admin'       => 'boolean',
+            'approver_manager_id'  => 'nullable|exists:users,id',
+            'approver_division_id' => 'nullable|exists:users,id',
+            'approver_director_id' => 'nullable|exists:users,id',
         ];
     }
 

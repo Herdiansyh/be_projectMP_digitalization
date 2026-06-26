@@ -29,6 +29,9 @@ class User extends Authenticatable implements JWTSubject
         'photo',
         'director_id',
         'is_admin',
+        'approver_manager_id',
+        'approver_division_id',
+        'approver_director_id',
     ];
 
     /**
@@ -83,6 +86,30 @@ class User extends Authenticatable implements JWTSubject
     public function director(): BelongsTo
     {
         return $this->belongsTo(User::class, 'director_id');
+    }
+
+    /**
+     * Get the approver manager for the user.
+     */
+    public function approverManager(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approver_manager_id');
+    }
+
+    /**
+     * Get the approver division for the user.
+     */
+    public function approverDivision(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approver_division_id');
+    }
+
+    /**
+     * Get the approver director for the user.
+     */
+    public function approverDirector(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approver_director_id');
     }
 
     /**
