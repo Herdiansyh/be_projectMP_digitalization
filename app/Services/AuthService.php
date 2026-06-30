@@ -14,31 +14,28 @@ class AuthService
     /**
      * Login user.
      */
-    public function login(array $credentials): array
-    {
-        $user = User::with(['roleLevel', 'department', 'section'])
-            ->where('email', $credentials['email'])
-            ->first();
+  public function login(array $credentials): array
+{
+    $user = User::with(['roleLevel', 'department', 'section'])
+        ->where('npk', $credentials['npk'])  // ← ganti dari email ke npk
+        ->first();
 
-        if (!$user) {
-            throw new Exception('Invalid credentials');
-        }
-
-       
-
-        if (!Hash::check($credentials['password'], $user->password)) {
-            throw new Exception('Invalid credentials');
-        }
-
-        $user->update([
-            'last_login_at' => now(),
-        ]);
-
-        $token = JWTAuth::fromUser($user);
-
-        return $this->buildAuthResponse($token, $user);
+    if (!$user) {
+        throw new Exception('Invalid credentials');
     }
 
+    if (!Hash::check($credentials['password'], $user->password)) {
+        throw new Exception('Invalid credentials');
+    }
+
+    $user->update([
+        'last_login_at' => now(),
+    ]);
+
+    $token = JWTAuth::fromUser($user);
+
+    return $this->buildAuthResponse($token, $user);
+}
     /**
      * Logout user.
      */

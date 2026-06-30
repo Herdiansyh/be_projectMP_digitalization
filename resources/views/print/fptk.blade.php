@@ -139,21 +139,11 @@
             <table class="table table-bordered">
                 <tbody>
                     <tr>
-                        <!-- Requirement Column -->
+                        <!-- ── Kolom Kiri: REQUIREMENT + MAN SPECIFICATION ── -->
                         <td style="width: 50%; vertical-align: top; padding: 10px;">
                             <div class="section-title">REQUIREMENT</div>
                             <hr class="section-hr">
 
-                            {{-- <div class="flex-row">
-                                <div class="col-label">Type</div>
-                                <div class="col-colon">:</div>
-                                <div class="col-value">{{ $requisition->type }}</div>
-                            </div> --}}
-                            {{-- <div class="flex-row">
-                                <div class="col-label">Group</div>
-                                <div class="col-colon">:</div>
-                                <div class="col-value">{{ $requisition->group }}</div>
-                            </div> --}}
                             <div class="flex-row">
                                 <div class="col-label">Department</div>
                                 <div class="col-colon">:</div>
@@ -206,54 +196,14 @@
                                 <div class="col-colon">:</div>
                                 <div class="col-value">{{ $requisition->education }}</div>
                             </div>
-                            {{-- <div class="flex-row">
-                                <div class="col-label">Maximum Age</div>
-                                <div class="col-colon">:</div>
-                                <div class="col-value">{{ $requisition->max_age }}</div>
-                            </div> --}}
                             <div class="flex-row">
                                 <div class="col-label">Min. Experience</div>
                                 <div class="col-colon">:</div>
                                 <div class="col-value">{{ $requisition->min_experience }} Years</div>
                             </div>
-
-                            <br>
-                            <div class="section-title">DETAIL REQUIREMENT</div>
-                            <hr class="section-hr">
-
-                            <div class="flex-row">
-                                <div class="col-label">Employee Cost Center</div>
-                                <div class="col-colon">:</div>
-                                <div class="col-value">{{ $requisition->cost_center }}</div>
-                            </div>
-                            <div class="flex-row">
-                                <div class="col-label">Requisition Object</div>
-                                <div class="col-colon">:</div>
-                                <div class="col-value">{{ $requisition->objective }}</div>
-                            </div>
-                            <div class="flex-row">
-                                <div class="col-label">Replacement Reason</div>
-                                <div class="col-colon">:</div>
-                                <div class="col-value">{{ $requisition->reason }}</div>
-                            </div>
-                            <div class="flex-row">
-                                <div class="col-label">Name Of Employee Out</div>
-                                <div class="col-colon">:</div>
-                                <div class="col-value">{{ $requisition->employee_out }}</div>
-                            </div>
-                            <div class="flex-row">
-                                <div class="col-label">Manpower Plan</div>
-                                <div class="col-colon">:</div>
-                                <div class="col-value">{{ $requisition->manpower_plan }}</div>
-                            </div>
-                            <div class="flex-row">
-                                <div class="col-label">Unplanned Reason</div>
-                                <div class="col-colon">:</div>
-                                <div class="col-value">{{ $requisition->unplanned_reason ?: '-' }}</div>
-                            </div>
                         </td>
 
-                        <!-- Job Specification Column -->
+                        <!-- ── Kolom Kanan: JOB SPECIFICATION + DETAIL REQUIREMENT ── -->
                         <td style="width: 50%; vertical-align: top; padding: 10px;">
                             <div class="section-title">JOB SPECIFICATION</div>
                             <hr class="section-hr">
@@ -285,16 +235,53 @@
                                     @endif
                                 </div>
                             </div>
-                            <br><br>
 
-                            {{-- <div class="section-title">JOB DESCRIPTION</div>
+                            <br>
+                            <div class="section-title">DETAIL REQUIREMENT</div>
                             <hr class="section-hr">
 
                             <div class="flex-row">
-                                <div class="col-label" style="width: 30%">Description</div>
-                                <div class="col-colon" style="width: 5%">:</div>
-                                <div class="col-value" style="width: 65%">{{ $requisition->description }}</div>
-                            </div> --}}
+                                <div class="col-label">Employee Cost Center</div>
+                                <div class="col-colon">:</div>
+                                <div class="col-value">{{ $requisition->cost_center }}</div>
+                            </div>
+                            <div class="flex-row">
+                                <div class="col-label">Requisition Object</div>
+                                <div class="col-colon">:</div>
+                                <div class="col-value">{{ $requisition->objective }}</div>
+                            </div>
+                            <div class="flex-row">
+                                <div class="col-label">Apprenticeship Period</div>
+                                <div class="col-colon">:</div>
+                                <div class="col-value">{{ $requisition->apprenticeship_period ? 'Ya' : 'Tidak' }}</div>
+                            </div>
+                            <div class="flex-row">
+                                <div class="col-label">Replacement Reason</div>
+                                <div class="col-colon">:</div>
+                                <div class="col-value">{{ $requisition->reason ?: '-' }}</div>
+                            </div>
+                            <div class="flex-row">
+                                <div class="col-label">Name Of Employee Out</div>
+                                <div class="col-colon">:</div>
+                                <div class="col-value">
+                                    {{ $requisition->employee_out ?: '-' }}
+                                    @if ($requisition->replacementEmployee)
+                                        <span style="color: #555; font-size: 11px;">
+                                            (NPK: {{ $requisition->replacementEmployee->npk }})
+                                        </span>
+                                    @endif
+                                </div>
+                            </div>
+                            <div class="flex-row">
+                                <div class="col-label">Manpower Plan</div>
+                                <div class="col-colon">:</div>
+                                <div class="col-value">{{ $requisition->manpower_plan ?: '-' }}</div>
+                            </div>
+                            <div class="flex-row">
+                                <div class="col-label">Unplanned Reason</div>
+                                <div class="col-colon">:</div>
+                                <div class="col-value">{{ $requisition->unplanned_reason ?: '-' }}</div>
+                            </div>
                         </td>
                     </tr>
                 </tbody>
@@ -318,7 +305,9 @@
                             <div style="font-weight: bold; margin-bottom: 20px;">Acknowledged By,</div>
                             <div style="font-weight: bold; margin-top: 40px;">{{ $requisition->manager ?: '-' }}</div>
                             <div style="margin-top: 5px;">Date:
-                                {{ $requisition->updated_at ? \Carbon\Carbon::parse($requisition->updated_at)->format('d-m-Y') : '-' }}
+                                {{ $requisition->manager_approved_at
+                                    ? \Carbon\Carbon::parse($requisition->manager_approved_at)->format('d-m-Y')
+                                    : '-' }}
                             </div>
                         </td>
                         <td style="width: 33.33%; padding: 10px; text-align: center;">
@@ -326,7 +315,9 @@
                             <div style="font-weight: bold; margin-top: 40px;">{{ $requisition->division ?: '-' }}
                             </div>
                             <div style="margin-top: 5px;">Date:
-                                {{ $requisition->updated_at ? \Carbon\Carbon::parse($requisition->updated_at)->format('d-m-Y') : '-' }}
+                                {{ $requisition->division_approved_at
+                                    ? \Carbon\Carbon::parse($requisition->division_approved_at)->format('d-m-Y')
+                                    : '-' }}
                             </div>
                         </td>
                     </tr>
@@ -341,7 +332,9 @@
                             <div style="font-weight: bold; margin-top: 40px;">{{ $requisition->director ?: '-' }}
                             </div>
                             <div style="margin-top: 5px;">Date:
-                                {{ $requisition->updated_at ? \Carbon\Carbon::parse($requisition->updated_at)->format('d-m-Y') : '-' }}
+                                {{ $requisition->director_approved_at
+                                    ? \Carbon\Carbon::parse($requisition->director_approved_at)->format('d-m-Y')
+                                    : '-' }}
                             </div>
                         </td>
                         <td style="width: 50%; padding: 10px; text-align: center;">
@@ -364,7 +357,6 @@
 
     <script>
         window.onload = function() {
-            // Tunggu semua gambar load dulu
             const images = document.querySelectorAll('img');
             let loaded = 0;
             if (images.length === 0) {

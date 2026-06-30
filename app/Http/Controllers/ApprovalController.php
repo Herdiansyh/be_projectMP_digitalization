@@ -94,7 +94,6 @@ class ApprovalController extends Controller
         'Menunggu Approval Director' => [
             'director_approved_at' => now(),
             'approval_status'      => $nextStatus,
-            'hrd_approved'         => 1,
         ],
         default => [],
     };

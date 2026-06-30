@@ -15,10 +15,10 @@ return new class extends Migration
             $table->string('no_req')->primary();
             $table->string('requester_name');
             $table->dateTime('request_date');
-            $table->string('group')->nullable();
+            // $table->string('group')->nullable();
             $table->string('department')->nullable();
             $table->string('section')->nullable();
-            $table->string('type')->nullable();
+            // $table->string('type')->nullable();
             $table->string('position')->nullable();
             $table->string('status')->nullable();
             $table->string('duration')->nullable();
@@ -30,7 +30,7 @@ return new class extends Migration
             $table->integer('min_experience')->nullable();
             $table->text('technical_skill')->nullable();
             $table->text('soft_skill')->nullable();
-            $table->text('description')->nullable();
+            // $table->text('description')->nullable();
             $table->string('cost_center')->nullable();
             $table->string('objective')->nullable();
             $table->text('reason')->nullable();
