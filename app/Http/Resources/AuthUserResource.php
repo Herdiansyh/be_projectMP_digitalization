@@ -21,7 +21,8 @@ class AuthUserResource extends JsonResource
             'npk'           => $this->npk,
             'username'      => $this->username,
             'photo'         => $this->photo,
-            'is_admin'      => (bool) $this->is_admin, // <-- TAMBAHAN
+            'is_admin'      => (bool) $this->is_admin, 
+            'can_view_manpower'     => (bool) $this->can_view_manpower,
             'is_active'     => (bool) $this->is_active,
             'last_login_at' => $this->last_login_at,
             'role' => [

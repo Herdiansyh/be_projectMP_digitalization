@@ -29,6 +29,7 @@ class User extends Authenticatable implements JWTSubject
         'photo',
         'director_id',
         'is_admin',
+        'can_view_manpower',
         'approver_manager_id',
         'approver_division_id',
         'approver_director_id',
@@ -53,6 +54,7 @@ class User extends Authenticatable implements JWTSubject
         return [
             'password' => 'hashed',
             'last_login_at' => 'datetime',
+            'can_view_manpower' => 'boolean',
         ];
     }
 

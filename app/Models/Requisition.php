@@ -54,6 +54,19 @@ class Requisition extends Model
         'hrd_processed_by',
         'replacement_employee_id',
         'apprenticeship_period',
+
+        // ── Tambahan: data assignment manpower ──
+        'assigned_npk',
+        'assigned_name',
+        'assigned_start_contract',
+        'assigned_end_contract',
+        'hrd_assigned_at',
+        'hrd_assigned_by',
+        'assigned_area',
+        'assigned_line',
+        'area_line_filled_at',
+        'employee_id',
+        'intern_id',
     ];
 
     protected $casts = [
@@ -69,8 +82,15 @@ class Requisition extends Model
         'division_approved_at'  => 'datetime',
         'director_approved_at'  => 'datetime',
         'hrd_processed_at'      => 'datetime',
-    ];
 
+        // ── Tambahan ──
+        'assigned_start_contract' => 'date',
+        'assigned_end_contract'   => 'date',
+        'hrd_assigned_at'         => 'datetime',
+        'area_line_filled_at'     => 'datetime',
+    ];
+    protected $appends = ['needs_area_line'];
+ 
     // ── Scopes ──────────────────────────────────────────────────────────────
 
     public function scopeByStatus($query, $status)
@@ -97,6 +117,17 @@ class Requisition extends Model
     public function scopeBySupervisor($query, $supervisor)
     {
         return $query->where('supervisor', $supervisor);
+    }
+
+    /**
+     * FPTK yang sudah diisi NPK/kontrak oleh HRD tapi requester
+     * belum melengkapi area/line. Dipakai untuk badge di FPTK List.
+     */
+    public function scopeNeedsAreaLine($query)
+    {
+        return $query->whereNotNull('hrd_assigned_at')
+            ->whereNull('employee_id')
+            ->whereNull('intern_id');
     }
 
     // ── Status Helpers ───────────────────────────────────────────────────────
@@ -131,10 +162,39 @@ class Requisition extends Model
         return str_contains($this->approval_status, 'Rejected');
     }
 
+    /**
+     * Department yang mewajibkan pengisian Line (bukan hanya Area).
+     */
+    public function requiresLine(): bool
+    {
+        return strcasecmp((string) $this->department, 'Manufacturing') === 0;
+    }
+
+    /**
+     * True jika HRD sudah submit NPK/kontrak tapi area/line belum diisi
+     * requester — dipakai FE untuk menampilkan badge + baris berwarna.
+     */
+    public function getNeedsAreaLineAttribute(): bool
+    {
+        return !is_null($this->hrd_assigned_at)
+            && is_null($this->employee_id)
+            && is_null($this->intern_id);
+    }
+
     // ── Relasi ───────────────────────────────────────────────────────────────
 
     public function replacementEmployee(): BelongsTo
     {
         return $this->belongsTo(Employee::class, 'replacement_employee_id');
+    }
+
+    public function assignedEmployee(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'employee_id');
+    }
+
+    public function assignedIntern(): BelongsTo
+    {
+        return $this->belongsTo(Intern::class, 'intern_id');
     }
 }

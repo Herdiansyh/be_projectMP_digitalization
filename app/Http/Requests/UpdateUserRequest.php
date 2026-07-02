@@ -34,6 +34,7 @@ class UpdateUserRequest extends FormRequest
             'role_level_id'  => 'nullable|exists:role_levels,id',
             'director_id'    => 'nullable|exists:users,id',
             'is_admin'       => 'boolean',
+            'can_view_manpower'     => 'boolean',
             'approver_manager_id'  => 'nullable|exists:users,id',
             'approver_division_id' => 'nullable|exists:users,id',
             'approver_director_id' => 'nullable|exists:users,id',
@@ -46,15 +47,15 @@ class UpdateUserRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'npk.unique'           => 'NPK sudah terdaftar.',
-            'name.required'        => 'Nama wajib diisi.',
-            'username.unique'      => 'Username sudah digunakan.',
-            'email.email'          => 'Format email tidak valid.',
-            'email.unique'         => 'Email sudah terdaftar.',
-            'department_id.exists' => 'Department tidak ditemukan.',
-            'section_id.exists'    => 'Section tidak ditemukan.',
-            'role_level_id.exists' => 'Role level tidak ditemukan.',
-            'director_id.exists'   => 'Director tidak ditemukan.',
+            'npk.unique'           => 'NPK is already registered.',
+            'name.required'        => 'Name is required.',
+            'username.unique'      => 'Username is already taken.',
+            'email.email'          => 'Invalid email format.',
+            'email.unique'         => 'Email is already registered.',
+            'department_id.exists' => 'Department not found.',
+            'section_id.exists'    => 'Section not found.',
+            'role_level_id.exists' => 'Role level not found.',
+            'director_id.exists'   => 'Director not found.',
         ];
     }
 

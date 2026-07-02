@@ -3,9 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\AssignAreaLineRequest;
+use App\Http\Requests\AssignManpowerRequest;
+use App\Models\Department;
+use App\Models\Employee;
+use App\Models\Intern;
 use App\Models\Requisition;
+use App\Models\Section;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
@@ -16,7 +24,7 @@ class FptkController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $user = auth()->user();
+        $user = Auth::user();
         $query = Requisition::orderBy('request_date', 'desc');
 
         if ($user) {
@@ -55,6 +63,11 @@ class FptkController extends Controller
 
         if ($request->has('supervisor')) {
             $query->bySupervisor($request->supervisor);
+        }
+
+        // ?needs_area_line=1 → used by FE for the "needs area/line" row badge/filter
+        if ($request->boolean('needs_area_line')) {
+            $query->needsAreaLine();
         }
 
         $perPage = min((int) ($request->per_page ?? 15), 100);
@@ -125,17 +138,22 @@ class FptkController extends Controller
         $noReq = $prefix . $newNumber;
 
         // ── Approver chain ───────────────────────────────────────────
-        $user     = auth()->user()->load(['approverManager', 'approverDivision', 'approverDirector']);
+        $user = User::with([
+            'approverManager',
+            'approverDivision',
+            'approverDirector',
+        ])->findOrFail(Auth::id());
+
         $manager  = $user->approverManager?->name;
         $division = $user->approverDivision?->name;
         $director = $user->approverDirector?->name;
 
         if ($manager) {
-            $initialStatus = 'Menunggu Approval Manager';
+            $initialStatus = 'Waiting for Manager Approval';
         } elseif ($division) {
-            $initialStatus = 'Menunggu Approval Division Head';
+            $initialStatus = 'Waiting for Division Head Approval';
         } elseif ($director) {
-            $initialStatus = 'Menunggu Approval Director';
+            $initialStatus = 'Waiting for Director Approval';
         } else {
             $initialStatus = 'Approved';
         }
@@ -188,7 +206,7 @@ class FptkController extends Controller
      */
 public function show(string $noReq): JsonResponse
 {
-    $requisition = Requisition::with('replacementEmployee:id,npk,name')
+    $requisition = Requisition::with(['replacementEmployee:id,npk,name', 'assignedEmployee:id,npk,name', 'assignedIntern:id,npk,name'])
         ->findOrFail($noReq);
 
     if (!$this->canAccessRequisition($requisition)) {
@@ -292,28 +310,28 @@ public function show(string $noReq): JsonResponse
     }
 
     /**
-     * HR Admin memproses FPTK yang sudah Approved.
-     * Mengubah approval_status menjadi "Processed HRD".
+     * HR Admin processes an FPTK that has already been Approved.
+     * Changes approval_status to "Processed HRD".
      */
     public function processHrd(string $noReq): JsonResponse
     {
-        $user = auth()->user();
+        $user = Auth::user();
 
-        // Hanya HR Admin yang boleh
+        // Only HR Admin is allowed
         if ($user->roleLevel?->name !== 'HR Admin') {
             return response()->json([
                 'success' => false,
-                'message' => 'Hanya HR Admin yang dapat memproses FPTK.',
+                'message' => 'Only HR Admin can process this FPTK.',
             ], 403);
         }
 
         $requisition = Requisition::findOrFail($noReq);
 
-        // Hanya FPTK dengan status Approved yang bisa diproses
+        // Only FPTK with Approved status can be processed
         if ($requisition->approval_status !== 'Approved') {
             return response()->json([
                 'success' => false,
-                'message' => 'FPTK hanya dapat diproses jika sudah berstatus Approved.',
+                'message' => 'FPTK can only be processed once it has Approved status.',
             ], 422);
         }
 
@@ -326,7 +344,127 @@ public function show(string $noReq): JsonResponse
 
         return response()->json([
             'success' => true,
-            'message' => "FPTK {$noReq} berhasil diproses oleh HRD.",
+            'message' => "FPTK {$noReq} has been successfully processed by HRD.",
+            'data'    => $requisition,
+        ]);
+    }
+
+    /**
+     * HR Admin fills in the candidate's NPK, name, and contract dates
+     * after CV screening is completed.
+     *
+     * Not yet inserted into employees/interns — waiting for the requester
+     * to complete area/line (see assignAreaLine()).
+     */
+    public function assignManpower(AssignManpowerRequest $request, string $noReq): JsonResponse
+    {
+        $user = Auth::user();
+        $requisition = Requisition::findOrFail($noReq);
+
+        if ($requisition->approval_status !== 'Processed HRD') {
+            return response()->json([
+                'success' => false,
+                'message' => 'FPTK must have Processed HRD status before manpower data can be filled in.',
+            ], 422);
+        }
+
+        $requisition->update([
+            'assigned_npk'            => $request->npk,
+            'assigned_name'           => $request->name,
+            'assigned_start_contract' => $request->start_contract,
+            'assigned_end_contract'   => $request->end_contract,
+            'hrd_assigned_at'         => now(),
+            'hrd_assigned_by'         => $user->name,
+        ]);
+
+        // TODO: send a notification to the requester (the badge already
+        // appears automatically via scopeNeedsAreaLine / the needs_area_line
+        // accessor on the FPTK list).
+
+        return response()->json([
+            'success' => true,
+            'message' => "Manpower data for FPTK {$noReq} has been saved. Waiting for the requester to complete area/line.",
+            'data'    => $requisition,
+        ]);
+    }
+
+    /**
+     * Requester completes the area (and line if department is Manufacturing).
+     * After this, the system automatically inserts the final record into
+     * employees or interns depending on apprenticeship_period, then the
+     * FPTK status becomes "Manpower Assigned".
+     */
+    public function assignAreaLine(AssignAreaLineRequest $request, string $noReq): JsonResponse
+    {
+        $requisition = Requisition::findOrFail($noReq);
+
+        if (is_null($requisition->hrd_assigned_at)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'HRD has not yet filled in the NPK/contract data for this FPTK.',
+            ], 422);
+        }
+
+        if (!is_null($requisition->employee_id) || !is_null($requisition->intern_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Area/line for this FPTK has already been filled in.',
+            ], 422);
+        }
+
+        $requisition = DB::transaction(function () use ($requisition, $request) {
+            $requisition->update([
+                'assigned_area'       => $request->area,
+                'assigned_line'       => $request->line,
+                'area_line_filled_at' => now(),
+            ]);
+
+            $departmentId = Department::where('name', $requisition->department)->value('id');
+            $sectionId    = Section::where('name', $requisition->section)->value('id');
+
+           $commonAttributes = [
+    'npk'            => $requisition->assigned_npk,
+    'name'           => $requisition->assigned_name,
+    'gender'         => 'male',      // ← required field, defaults to male since FPTK has no gender data
+    'department_id'  => $departmentId,
+    'section_id'     => $sectionId,
+    'jabatan'        => $requisition->position,
+    'start_contract' => $requisition->assigned_start_contract,
+    'end_contract'   => $requisition->assigned_end_contract,
+    'area'           => $requisition->assigned_area,
+    'line'           => $requisition->assigned_line, // ← line is now saved as well
+];
+ 
+if ($requisition->apprenticeship_period) {
+    $intern = Intern::create($commonAttributes);
+    $requisition->intern_id = $intern->id;
+} else {
+    // Map FPTK status to employee employment_type
+    // FPTK status may contain: Permanent, Contract, Magang, etc.
+    $statusMap = [
+        'Permanent' => 'permanent',
+        'Contract'  => 'contract',
+        'Magang'    => 'contract', // fallback in case it occurs
+    ];
+    $employmentType = $statusMap[$requisition->status] ?? 'permanent';
+ 
+    $employee = Employee::create(array_merge($commonAttributes, [
+        'employment_type' => $employmentType,
+        'status'          => 'active',
+    ]));
+    $requisition->employee_id = $employee->id;
+}
+ 
+// Final status once the process is complete
+$requisition->approval_status = 'Manpower Assigned';
+$requisition->save();
+
+            return $requisition;
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => "FPTK {$noReq} completed — manpower record has been created.",
             'data'    => $requisition,
         ]);
     }
@@ -336,7 +474,7 @@ public function show(string $noReq): JsonResponse
      */
     public function pendingApproval(Request $request): JsonResponse
     {
-        $user = auth()->user();
+        $user = Auth::user();
 
         if (!$user) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
@@ -345,11 +483,11 @@ public function show(string $noReq): JsonResponse
         $query = Requisition::orderBy('request_date', 'desc');
 
         if ($user->roleLevel?->name === 'Director') {
-            $query->byStatus('Menunggu Approval Director')->byDirector($user->name);
+            $query->byStatus('Waiting for Director Approval')->byDirector($user->name);
         } elseif ($user->roleLevel?->name === 'Division Head') {
-            $query->byStatus('Menunggu Approval Division Head')->byDivision($user->name);
+            $query->byStatus('Waiting for Division Head Approval')->byDivision($user->name);
         } elseif ($user->roleLevel?->name === 'Manager') {
-            $query->byStatus('Menunggu Approval Manager')->byManager($user->name);
+            $query->byStatus('Waiting for Manager Approval')->byManager($user->name);
         }
 
         $perPage = min((int) ($request->per_page ?? 15), 100);
@@ -366,7 +504,7 @@ public function show(string $noReq): JsonResponse
      */
     public function approvalHistory(Request $request): JsonResponse
     {
-        $user = auth()->user();
+        $user = Auth::user();
 
         if (!$user) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
@@ -422,7 +560,7 @@ public function show(string $noReq): JsonResponse
      */
     public function printView(string $noReq)
     {
-         $requisition = Requisition::with('replacementEmployee:id,npk,name')  // ← tambah with
+         $requisition = Requisition::with('replacementEmployee:id,npk,name')  // ← added relation
         ->findOrFail($noReq);
 
         if (is_string($requisition->technical_skill)) {
@@ -442,7 +580,7 @@ public function show(string $noReq): JsonResponse
      */
     private function canAccessRequisition(Requisition $requisition): bool
     {
-        $user = auth()->user();
+        $user = Auth::user();
         if (!$user) return false;
 
         $roleName = $user->roleLevel?->name;

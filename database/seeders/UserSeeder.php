@@ -18,9 +18,9 @@ class UserSeeder extends Seeder
         $Manager         = RoleLevel::where('name', 'Manager')->first();
         $sectionHead     = RoleLevel::where('name', 'Section Head')->first();
         $staff           = RoleLevel::where('name', 'Staff')->first();
-        $operator        = RoleLevel::where('name', 'Operator')->first();
+        $hradmin        = RoleLevel::where('name', 'HR Admin')->first();
 
-        if (!$admin || !$director || !$divisionHead || !$Manager|| !$sectionHead || !$staff || !$operator) {
+        if (!$admin || !$director || !$divisionHead || !$Manager|| !$sectionHead || !$staff || !$hradmin) {
             $this->command->error('RoleLevel not found. Run RoleLevelSeeder first.');
             return;
         }
@@ -28,7 +28,7 @@ class UserSeeder extends Seeder
         $users = [
             // ── Admin ──
             [
-                'npk'           => 'EMP0001',
+                'npk'           => '01',
                 'username'      => 'admin',
                 'name'          => 'Administrator',
                 'email'         => 'admin@gmail.com',
@@ -38,7 +38,7 @@ class UserSeeder extends Seeder
 
             // ── Director ──
             [
-                'npk'           => 'EMP0002',
+                'npk'           => '04',
                 'username'      => 'director1',
                 'name'          => 'Budi Santoso',
                 'email'         => 'director1@gmail.com',
@@ -56,7 +56,7 @@ class UserSeeder extends Seeder
 
             // ── Division Head ──
             [
-                'npk'           => 'EMP0004',
+                'npk'           => '03',
                 'username'      => 'divhead1',
                 'name'          => 'Ahmad Fauzi',
                 'email'         => 'divhead1@gmail.com',
@@ -82,7 +82,7 @@ class UserSeeder extends Seeder
 
             // ── Departement Head (Manager) ──
             [
-                'npk'           => 'EMP0007',
+                'npk'           => '02',
                 'username'      => 'manager1',
                 'name'          => 'Hendra Wijaya',
                 'email'         => 'manager1@gmail.com',
@@ -158,22 +158,22 @@ class UserSeeder extends Seeder
                 'role_level_id' => $staff->id,
             ],
 
-            // ── Operator ──
+            // ── hradmin ──
             [
                 'npk'           => 'EMP0016',
-                'username'      => 'operator1',
+                'username'      => 'hradmin1',
                 'name'          => 'Eko Purnomo',
-                'email'         => 'operator1@gmail.com',
+                'email'         => 'hradmin1@gmail.com',
                 'password'      => Hash::make('123123123'),
-                'role_level_id' => $operator->id,
+                'role_level_id' => $hradmin->id,
             ],
             [
                 'npk'           => 'EMP0017',
-                'username'      => 'operator2',
+                'username'      => 'hradmin2',
                 'name'          => 'Fajar Hidayat',
-                'email'         => 'operator2@gmail.com',
+                'email'         => 'hradmin2@gmail.com',
                 'password'      => Hash::make('123123123'),
-                'role_level_id' => $operator->id,
+                'role_level_id' => $hradmin->id,
             ],
         ];
 
@@ -185,6 +185,8 @@ class UserSeeder extends Seeder
                     'section_id'    => null,
                     'photo'         => null,
                     'director_id'   => null,
+                    'is_admin'      => $userData['role_level_id'] === $admin->id,
+
                 ])
             );
         }

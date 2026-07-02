@@ -5,6 +5,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\FptkController;
 use App\Http\Controllers\ApprovalController;
 use App\Http\Controllers\EmployeeController;
+use App\Http\Controllers\InternController;
 use App\Http\Controllers\MasterDataController;
 use App\Http\Controllers\UserController;
 
@@ -12,7 +13,7 @@ Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
     Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:api');
     Route::get('/me', [AuthController::class, 'me'])->middleware('auth:api');
-    Route::post('/refresh', [AuthController::class, 'refresh'])->middleware('auth:api');
+    Route::post('/refresh', [AuthController::class, 'refresh']);
 });
 
 Route::get('/master-data', [MasterDataController::class, 'index']);
@@ -28,6 +29,9 @@ Route::middleware('auth:api')->group(function () {
         Route::get('/{noReq}', [FptkController::class, 'show']);
         Route::delete('/{noReq}', [FptkController::class, 'destroy']);
         Route::post('/{noReq}/process-hrd', [FptkController::class, 'processHrd']);
+        Route::post('/{noReq}/assign-manpower', [FptkController::class, 'assignManpower']);
+        Route::post('/{noReq}/assign-area-line', [FptkController::class, 'assignAreaLine']);
+ 
     });
 
     // Approval Routes
@@ -49,11 +53,20 @@ Route::middleware('auth:api')->group(function () {
     });
     
     Route::get('/employees/active-list', [EmployeeController::class, 'activeList']);
-Route::middleware('admin')->prefix('employees')->group(function () {
+Route::middleware('manpower')->prefix('employees')->group(function () {
     Route::get('/',              [EmployeeController::class, 'index']);
     Route::post('/',             [EmployeeController::class, 'store']);
     Route::get('/{employee}',    [EmployeeController::class, 'show']);
     Route::put('/{employee}',    [EmployeeController::class, 'update']);
     Route::delete('/{employee}', [EmployeeController::class, 'destroy']);
+});
+
+Route::get('/interns/active-list', [InternController::class, 'activeList']);
+Route::middleware('manpower')->prefix('interns')->group(function () {
+    Route::get('/',            [InternController::class, 'index']);
+    Route::post('/',           [InternController::class, 'store']);
+    Route::get('/{intern}',    [InternController::class, 'show']);
+    Route::put('/{intern}',    [InternController::class, 'update']);
+    Route::delete('/{intern}', [InternController::class, 'destroy']);
 });
 });

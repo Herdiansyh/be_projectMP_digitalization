@@ -23,12 +23,11 @@ class UpdateEmployeeRequest extends FormRequest
             'gender'          => ['sometimes', 'in:male,female'],
             'department_id'   => ['nullable', 'exists:departments,id'],
             'section_id'      => ['nullable', 'exists:sections,id'],
-            'role_level_id'   => ['nullable', 'exists:role_levels,id'],
+            'role_level'      => ['nullable', 'string', 'max:255'],
             'jabatan'         => ['nullable', 'string', 'max:255'],
             'area'            => ['nullable', 'string', 'max:255'],
             'station'         => ['nullable', 'string', 'max:255'],
             'employment_type' => ['sometimes', 'in:permanent,contract,apprentice'],
-            'status'          => ['sometimes', 'in:active,nonactive,resigned'],
             'start_contract'  => ['sometimes', 'date'],
             'end_contract'    => [
                 'nullable',
@@ -43,12 +42,12 @@ class UpdateEmployeeRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'npk.unique'               => 'NPK sudah terdaftar',
-            'gender.in'                => 'Gender harus male atau female',
-            'employment_type.in'       => 'Tipe karyawan tidak valid',
-            'status.in'                => 'Status tidak valid',
-            'end_contract.required_if' => 'Tanggal akhir kontrak wajib diisi untuk tipe contract/apprentice',
-            'end_contract.after'       => 'Tanggal akhir kontrak harus setelah tanggal mulai',
+            'npk.unique'               => 'NPK is already registered',
+            'gender.in'                => 'Gender must be male or female',
+            'employment_type.in'       => 'Employee type is invalid',
+
+            'end_contract.required_if' => 'Contract end date is required for contract/apprentice type',
+            'end_contract.after'       => 'Contract end date must be after the start date',
         ];
     }
 

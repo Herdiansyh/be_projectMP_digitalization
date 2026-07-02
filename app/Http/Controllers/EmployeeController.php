@@ -18,7 +18,7 @@ class EmployeeController extends Controller
     public function index(Request $request): JsonResponse
 {
     try {
-        $query = Employee::with(['department', 'section', 'roleLevel']);
+        $query = Employee::with(['department', 'section']);
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -41,9 +41,7 @@ class EmployeeController extends Controller
             $query->where('employment_type', $request->employment_type);
         }
 
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
-        }
+        // Removed status filter: 'active' / 'nonactive' logic removed
 
         if ($request->boolean('near_expiry')) {
             $query->whereNotNull('end_contract')
@@ -67,7 +65,7 @@ class EmployeeController extends Controller
     {
         try {
             $employee = Employee::create($request->validated());
-            $employee->load(['department', 'section', 'roleLevel']);
+            $employee->load(['department', 'section']);
 
             return $this->successResponse(
                 new EmployeeResource($employee),
@@ -82,7 +80,7 @@ class EmployeeController extends Controller
     public function show(Employee $employee): JsonResponse
     {
         try {
-            $employee->load(['department', 'section', 'roleLevel']);
+            $employee->load(['department', 'section']);
 
             return $this->successResponse(
                 new EmployeeResource($employee),
@@ -97,7 +95,7 @@ class EmployeeController extends Controller
     {
         try {
             $employee->update($request->validated());
-            $employee->load(['department', 'section', 'roleLevel']);
+            $employee->load(['department', 'section']);
 
             return $this->successResponse(
                 new EmployeeResource($employee),
@@ -120,21 +118,22 @@ class EmployeeController extends Controller
     }
 
     // Di EmployeeController.php
-public function activeList(): JsonResponse
-{
-    try {
-        $employees = Employee::select('id', 'npk', 'name', 'jabatan', 'department_id')
-            ->with('department:id,name')
-            ->where('status', 'active')
-            ->orderBy('name')
-            ->get();
+    public function activeList(): JsonResponse
+    {
+        try {
+            // Previously returned only employees with status='active'.
+            // Status logic removed — return compact employee list for dropdowns.
+            $employees = Employee::select('id', 'npk', 'name', 'jabatan', 'department_id')
+                ->with('department:id,name')
+                ->orderBy('name')
+                ->get();
 
-        return $this->successResponse(
-            EmployeeResource::collection($employees),
-            'Active employees retrieved successfully'
-        );
-    } catch (Exception $e) {
-        return $this->errorResponse($e->getMessage(), 500);
+            return $this->successResponse(
+                EmployeeResource::collection($employees),
+                'Employees retrieved successfully'
+            );
+        } catch (Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
     }
-}
 }

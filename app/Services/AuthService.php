@@ -62,20 +62,26 @@ class AuthService
     /**
      * Refresh JWT token.
      */
-    public function refresh(): array
-    {
-        $newToken = JWTAuth::refresh(JWTAuth::getToken());
+   public function refresh(): array
+{
+    $oldToken = JWTAuth::getToken();
 
-        $user = User::with(['roleLevel', 'department', 'section'])
-            ->find(Auth::id());
+    // Ambil payload dari token lama SEBELUM di-refresh,
+    // karena setelah refresh, token lama otomatis di-blacklist.
+    $payload = JWTAuth::setToken($oldToken)->getPayload();
+    $userId  = $payload->get('sub');
 
-        if (!$user) {
-            throw new Exception('User not authenticated');
-        }
+    $newToken = JWTAuth::refresh($oldToken);
 
-        return $this->buildAuthResponse($newToken, $user);
+    $user = User::with(['roleLevel', 'department', 'section'])
+        ->find($userId);
+
+    if (!$user) {
+        throw new Exception('User not authenticated');
     }
 
+    return $this->buildAuthResponse($newToken, $user);
+}
     /**
      * Build authentication response.
      */

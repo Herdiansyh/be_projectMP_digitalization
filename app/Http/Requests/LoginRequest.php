@@ -24,12 +24,12 @@ class LoginRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'npk.required' => 'NPK wajib diisi',
-            'npk.string'   => 'NPK harus berupa teks',
-            'npk.exists'   => 'NPK tidak ditemukan',
-            'password.required' => 'Password wajib diisi',
-            'password.string'   => 'Password harus berupa teks',
-            'password.min'      => 'Password minimal 8 karakter',
+            'npk.required' => 'NPK is required',
+            'npk.string'   => 'NPK must be text',
+            'npk.exists'   => 'NPK not found',
+            'password.required' => 'Password is required',
+            'password.string'   => 'Password must be text',
+            'password.min'      => 'Password must be at least 8 characters',
         ];
     }
 

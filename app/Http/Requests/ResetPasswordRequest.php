@@ -33,9 +33,9 @@ class ResetPasswordRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'password.required'  => 'Password baru wajib diisi.',
-            'password.min'       => 'Password minimal 8 karakter.',
-            'password.confirmed' => 'Konfirmasi password tidak cocok.',
+            'password.required'  => 'New password is required.',
+            'password.min'       => 'Password must be at least 8 characters.',
+            'password.confirmed' => 'Password confirmation does not match.',
         ];
     }
 

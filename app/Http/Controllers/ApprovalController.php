@@ -40,14 +40,14 @@ class ApprovalController extends Controller
 
     // Validasi: apakah user ini memang yang ditunjuk & statusnya sesuai
     $isAuthorized = match($currentStatus) {
-        'Menunggu Approval Manager'      => $roleName === 'Manager'
-                                            && $requisition->manager === $user->name,
-        'Menunggu Approval Division Head' => $roleName === 'Division Head'
-                                            && $requisition->division === $user->name,
-        'Menunggu Approval Director'     => $roleName === 'Director'
-                                            && $requisition->director === $user->name,
-        default => false,
-    };
+    'Waiting for Manager Approval'      => $roleName === 'Manager'
+                                        && $requisition->manager === $user->name,
+    'Waiting for Division Head Approval' => $roleName === 'Division Head'
+                                        && $requisition->division === $user->name,
+    'Waiting for Director Approval'     => $roleName === 'Director'
+                                        && $requisition->director === $user->name,
+    default => false,
+};
 
     if (!$isAuthorized) {
         return response()->json([
@@ -71,32 +71,32 @@ class ApprovalController extends Controller
     }
 
     // Handle approval — tentukan status berikutnya
-    $nextStatus = match($currentStatus) {
-        'Menunggu Approval Manager' => $requisition->division
-            ? 'Menunggu Approval Division Head'
-            : ($requisition->director ? 'Menunggu Approval Director' : 'Approved'),
-        'Menunggu Approval Division Head' => $requisition->director
-            ? 'Menunggu Approval Director'
-            : 'Approved',
-        'Menunggu Approval Director' => 'Approved',
-        default => 'Approved',
-    };
+  $nextStatus = match($currentStatus) {
+    'Waiting for Manager Approval' => $requisition->division
+        ? 'Waiting for Division Head Approval'
+        : ($requisition->director ? 'Waiting for Director Approval' : 'Approved'),
+    'Waiting for Division Head Approval' => $requisition->director
+        ? 'Waiting for Director Approval'
+        : 'Approved',
+    'Waiting for Director Approval' => 'Approved',
+    default => 'Approved',
+};
 
-    $updateData = match($currentStatus) {
-        'Menunggu Approval Manager' => [
-            'manager_approved_at' => now(),
-            'approval_status'     => $nextStatus,
-        ],
-        'Menunggu Approval Division Head' => [
-            'division_approved_at' => now(),
-            'approval_status'      => $nextStatus,
-        ],
-        'Menunggu Approval Director' => [
-            'director_approved_at' => now(),
-            'approval_status'      => $nextStatus,
-        ],
-        default => [],
-    };
+$updateData = match($currentStatus) {
+    'Waiting for Manager Approval' => [
+        'manager_approved_at' => now(),
+        'approval_status'     => $nextStatus,
+    ],
+    'Waiting for Division Head Approval' => [
+        'division_approved_at' => now(),
+        'approval_status'      => $nextStatus,
+    ],
+    'Waiting for Director Approval' => [
+        'director_approved_at' => now(),
+        'approval_status'      => $nextStatus,
+    ],
+    default => [],
+};
 
     $requisition->update($updateData);
 

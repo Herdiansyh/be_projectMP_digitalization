@@ -21,18 +21,17 @@ class StoreEmployeeRequest extends FormRequest
             'gender'          => ['required', 'in:male,female'],
             'department_id'   => ['nullable', 'exists:departments,id'],
             'section_id'      => ['nullable', 'exists:sections,id'],
-            'role_level_id'   => ['nullable', 'exists:role_levels,id'],
+            'role_level'      => ['nullable', 'string', 'max:255'],
             'jabatan'         => ['nullable', 'string', 'max:255'],
             'area'            => ['nullable', 'string', 'max:255'],
             'station'         => ['nullable', 'string', 'max:255'],
             'employment_type' => ['required', 'in:permanent,contract,apprentice'],
-            'status'          => ['required', 'in:active,nonactive,resigned'],
             'start_contract'  => ['required', 'date'],
             'end_contract'    => [
                 'nullable',
                 'date',
                 'after:start_contract',
-                // Wajib jika bukan permanent
+                // Required if not permanent
                 'required_if:employment_type,contract',
                 'required_if:employment_type,apprentice',
             ],
@@ -42,19 +41,18 @@ class StoreEmployeeRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'npk.required'              => 'NPK wajib diisi',
-            'npk.unique'                => 'NPK sudah terdaftar',
-            'name.required'             => 'Nama wajib diisi',
-            'gender.required'           => 'Gender wajib dipilih',
-            'gender.in'                 => 'Gender harus male atau female',
-            'employment_type.required'  => 'Tipe karyawan wajib dipilih',
-            'employment_type.in'        => 'Tipe karyawan tidak valid',
-            'status.required'           => 'Status wajib dipilih',
-            'status.in'                 => 'Status tidak valid',
-            'start_contract.required'   => 'Tanggal mulai kontrak wajib diisi',
-            'start_contract.date'       => 'Format tanggal tidak valid',
-            'end_contract.required_if'  => 'Tanggal akhir kontrak wajib diisi untuk tipe contract/apprentice',
-            'end_contract.after'        => 'Tanggal akhir kontrak harus setelah tanggal mulai',
+            'npk.required'              => 'NPK is required',
+            'npk.unique'                => 'NPK is already registered',
+            'name.required'             => 'Name is required',
+            'gender.required'           => 'Gender is required',
+            'gender.in'                 => 'Gender must be male or female',
+            'employment_type.required'  => 'Employee type is required',
+            'employment_type.in'        => 'Employee type is invalid',
+
+            'start_contract.required'   => 'Contract start date is required',
+            'start_contract.date'       => 'Invalid date format',
+            'end_contract.required_if'  => 'Contract end date is required for contract/apprentice type',
+            'end_contract.after'        => 'Contract end date must be after the start date',
         ];
     }
 

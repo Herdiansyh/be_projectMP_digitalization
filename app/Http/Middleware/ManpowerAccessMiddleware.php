@@ -7,11 +7,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
-class AdminMiddleware
+class ManpowerAccessMiddleware
 {
     /**
      * Handle an incoming request.
-     * Only allow users with is_admin = true to proceed.
+     * Allow users with is_admin = true OR can_view_manpower = true.
      */
     public function handle(Request $request, Closure $next): Response
     {
@@ -24,10 +24,10 @@ class AdminMiddleware
             ], 401);
         }
 
-        if (!$user->is_admin) {
+        if (!$user->is_admin && !$user->can_view_manpower) {
             return response()->json([
                 'success' => false,
-                'message' => 'Forbidden. Admin access required.',
+                'message' => 'Forbidden. Manpower access required.',
             ], 403);
         }
 
