@@ -13,22 +13,23 @@ class StoreInternRequest extends FormRequest
         return true;
     }
 
-    public function rules(): array
-    {
-        return [
-            'npk'            => ['required', 'string', 'unique:interns,npk'],
-            'name'           => ['required', 'string', 'max:255'],
-            'gender'         => ['required', 'in:male,female'],
-            'department_id'  => ['nullable', 'exists:departments,id'],
-            'section_id'     => ['nullable', 'exists:sections,id'],
-            'role_level'     => ['nullable', 'string', 'max:255'],
-            'jabatan'        => ['nullable', 'string', 'max:255'],
-            'area'           => ['nullable', 'string', 'max:255'],
-            'station'        => ['nullable', 'string', 'max:255'],
-            'start_contract' => ['required', 'date'],
-            'end_contract'   => ['required', 'date', 'after:start_contract'],
-        ];
-    }
+  public function rules(): array
+{
+    return [
+        'npk'            => ['required', 'string', 'unique:interns,npk'],
+        'name'           => ['required', 'string', 'max:255'],
+        'gender'         => ['required', 'in:male,female'],
+        'department_id'  => ['nullable', 'exists:departments,id'],
+        'section_id'     => ['nullable', 'exists:sections,id'],
+        'role_level'     => ['nullable', 'string', 'max:255'],
+        'jabatan'        => ['nullable', 'string', 'max:255'],
+        'area_id'        => ['nullable', 'exists:areas,id'],
+        'line_id'        => ['nullable', 'exists:lines,id'],
+        'station_id'     => ['nullable', 'exists:stations,id'],
+        'start_contract' => ['required', 'date'],
+        'end_contract'   => ['required', 'date', 'after:start_contract'],
+    ];
+}
 
     public function messages(): array
     {

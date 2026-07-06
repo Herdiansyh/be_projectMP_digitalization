@@ -36,6 +36,13 @@ class FptkController extends Controller
                       ->orWhere('division', $user->name)
                       ->orWhere('director', $user->name)
                       ->orWhere('supervisor', $user->name);
+
+                    // User dari department yang sama boleh melihat FPTK
+                    // department tersebut (dibutuhkan agar mereka bisa
+                    // mengisi area/line, tidak hanya requester aslinya).
+                    if ($user->department?->name) {
+                        $q->orWhere('department', $user->department->name);
+                    }
                 });
             }
         }
@@ -82,145 +89,147 @@ class FptkController extends Controller
     /**
      * Store a newly created requisition in storage.
      */
-   public function store(Request $request): JsonResponse
-{
-    $validator = Validator::make($request->all(), [
-        'requester_name'          => 'required|string|max:255',
-        'request_date'            => 'required|date',
-        'group'                   => 'nullable|string|max:255',
-        'department'              => 'nullable|string|max:255',
-        'section'                 => 'nullable|string|max:255',
-        'type'                    => 'nullable|string|max:255',
-        'position'                => 'nullable|string|max:255',
-        'status'                  => 'nullable|string|max:255',
-        'duration'                => 'nullable|string|max:255',
-        'level'                   => 'nullable|string|max:255',
-        'cost_employee'           => 'nullable|string|max:255',
-        'fulfilment_time'         => 'nullable|string|max:255',
-        'education'               => 'nullable|string|max:255',
-        'max_age'                 => 'nullable|integer|min:18',
-        'min_experience'          => 'nullable|integer|min:0',
-        'technical_skill'         => 'nullable|array',
-        'soft_skill'              => 'nullable|array',
-        'description'             => 'nullable|string',
-        'cost_center'             => 'nullable|string|max:255',
-        'objective'               => 'nullable|string|max:255',
-        'reason'                  => 'nullable|string',
-        'employee_out'            => 'nullable|string|max:255',
-        'replacement_employee_id' => 'nullable|exists:employees,id',
-        'apprenticeship_period'   => 'nullable|boolean',
-        'manpower_plan'           => 'nullable|string',
-        'unplanned_reason'        => 'nullable|string',
-        'supervisor'              => 'nullable|string|max:255',
-    ]);
+    public function store(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'requester_name'          => 'required|string|max:255',
+            'request_date'            => 'required|date',
+            'group'                   => 'nullable|string|max:255',
+            'department'              => 'nullable|string|max:255',
+            'section'                 => 'nullable|string|max:255',
+            'type'                    => 'nullable|string|max:255',
+            'position'                => 'nullable|string|max:255',
+            'status'                  => 'nullable|string|max:255',
+            'duration'                => 'nullable|string|max:255',
+            'level'                   => 'nullable|string|max:255',
+            'cost_employee'           => 'nullable|string|max:255',
+            'fulfilment_time'         => 'nullable|string|max:255',
+            'education'               => 'nullable|string|max:255',
+            'max_age'                 => 'nullable|integer|min:18',
+            'min_experience'          => 'nullable|integer|min:0',
+            'technical_skill'         => 'nullable|array',
+            'soft_skill'              => 'nullable|array',
+            'description'             => 'nullable|string',
+            'cost_center'             => 'nullable|string|max:255',
+            'objective'               => 'nullable|string|max:255',
+            'reason'                  => 'nullable|string',
+            'employee_out'            => 'nullable|string|max:255',
+            'replacement_employee_id' => 'nullable|exists:employees,id',
+            'apprenticeship_period'   => 'nullable|boolean',
+            'manpower_plan'           => 'nullable|string',
+            'unplanned_reason'        => 'nullable|string',
+            'supervisor'              => 'nullable|string|max:255',
+        ]);
 
-    if ($validator->fails()) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Validation failed',
-            'errors'  => $validator->errors(),
-        ], 422);
-    }
-
-    $requisition = DB::transaction(function () use ($request) {
-        // ── Generate no_req ──────────────────────────────────────────
-        $prefix = 'FPTK-' . now()->format('Ymd') . '-';
-
-        $last = Requisition::where('no_req', 'like', $prefix . '%')
-            ->orderBy('no_req', 'desc')
-            ->lockForUpdate()
-            ->first();
-
-        $newNumber = $last
-            ? str_pad((int) substr($last->no_req, -4) + 1, 4, '0', STR_PAD_LEFT)
-            : '0001';
-
-        $noReq = $prefix . $newNumber;
-
-        // ── Approver chain ───────────────────────────────────────────
-        $user = User::with([
-            'approverManager',
-            'approverDivision',
-            'approverDirector',
-        ])->findOrFail(Auth::id());
-
-        $manager  = $user->approverManager?->name;
-        $division = $user->approverDivision?->name;
-        $director = $user->approverDirector?->name;
-
-        if ($manager) {
-            $initialStatus = 'Waiting for Manager Approval';
-        } elseif ($division) {
-            $initialStatus = 'Waiting for Division Head Approval';
-        } elseif ($director) {
-            $initialStatus = 'Waiting for Director Approval';
-        } else {
-            $initialStatus = 'Approved';
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors'  => $validator->errors(),
+            ], 422);
         }
 
-        // ── Create requisition ───────────────────────────────────────
-        return Requisition::create([
-            'no_req'                  => $noReq,
-            'requester_name'          => $request->requester_name,
-            'request_date'            => $request->request_date,
-            'group'                   => $request->group,
-            'department'              => $request->department,
-            'section'                 => $request->section,
-            'type'                    => $request->type,
-            'position'                => $request->position,
-            'status'                  => $request->status,
-            'duration'                => $request->duration,
-            'level'                   => $request->level,
-            'cost_employee'           => $request->cost_employee,
-            'fulfilment_time'         => $request->fulfilment_time,
-            'education'               => $request->education,
-            'max_age'                 => $request->max_age,
-            'min_experience'          => $request->min_experience,
-            'technical_skill'         => $request->technical_skill,
-            'soft_skill'              => $request->soft_skill,
-            'description'             => $request->description,
-            'cost_center'             => $request->cost_center,
-            'objective'               => $request->objective,
-            'reason'                  => $request->reason,
-            'employee_out'            => $request->employee_out,
-            'replacement_employee_id' => $request->replacement_employee_id,
-            'apprenticeship_period'   => $request->boolean('apprenticeship_period', false),
-            'manpower_plan'           => $request->manpower_plan,
-            'unplanned_reason'        => $request->unplanned_reason,
-            'manager'                 => $manager,
-            'division'                => $division,
-            'director'                => $director,
-            'supervisor'              => $request->supervisor,
-            'approval_status'         => $initialStatus,
-        ]);
-    });
+        $requisition = DB::transaction(function () use ($request) {
+            // ── Generate no_req ──────────────────────────────────────────
+            $prefix = 'FPTK-' . now()->format('Ymd') . '-';
 
-    return response()->json([
-        'success' => true,
-        'message' => 'Requisition created successfully',
-        'data'    => $requisition,
-    ], 201);
-}
+            $last = Requisition::where('no_req', 'like', $prefix . '%')
+                ->orderBy('no_req', 'desc')
+                ->lockForUpdate()
+                ->first();
+
+            $newNumber = $last
+                ? str_pad((int) substr($last->no_req, -4) + 1, 4, '0', STR_PAD_LEFT)
+                : '0001';
+
+            $noReq = $prefix . $newNumber;
+
+            // ── Approver chain ───────────────────────────────────────────
+            $user = User::with([
+                'approverManager',
+                'approverDivision',
+                'approverDirector',
+            ])->findOrFail(Auth::id());
+
+            $manager  = $user->approverManager?->name;
+            $division = $user->approverDivision?->name;
+            $director = $user->approverDirector?->name;
+
+            if ($manager) {
+                $initialStatus = 'Waiting for Manager Approval';
+            } elseif ($division) {
+                $initialStatus = 'Waiting for Division Head Approval';
+            } elseif ($director) {
+                $initialStatus = 'Waiting for Director Approval';
+            } else {
+                $initialStatus = 'Approved';
+            }
+
+            // ── Create requisition ───────────────────────────────────────
+            return Requisition::create([
+                'no_req'                  => $noReq,
+                'requester_name'          => $request->requester_name,
+                'request_date'            => $request->request_date,
+                'group'                   => $request->group,
+                'department'              => $request->department,
+                'section'                 => $request->section,
+                'type'                    => $request->type,
+                'position'                => $request->position,
+                'status'                  => $request->status,
+                'duration'                => $request->duration,
+                'level'                   => $request->level,
+                'cost_employee'           => $request->cost_employee,
+                'fulfilment_time'         => $request->fulfilment_time,
+                'education'               => $request->education,
+                'max_age'                 => $request->max_age,
+                'min_experience'          => $request->min_experience,
+                'technical_skill'         => $request->technical_skill,
+                'soft_skill'              => $request->soft_skill,
+                'description'             => $request->description,
+                'cost_center'             => $request->cost_center,
+                'objective'               => $request->objective,
+                'reason'                  => $request->reason,
+                'employee_out'            => $request->employee_out,
+                'replacement_employee_id' => $request->replacement_employee_id,
+                'apprenticeship_period'   => $request->boolean('apprenticeship_period', false),
+                'manpower_plan'           => $request->manpower_plan,
+                'unplanned_reason'        => $request->unplanned_reason,
+                'manager'                 => $manager,
+                'division'                => $division,
+                'director'                => $director,
+                'supervisor'              => $request->supervisor,
+                'approval_status'         => $initialStatus,
+            ]);
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Requisition created successfully',
+            'data'    => $requisition,
+        ], 201);
+    }
+
     /**
      * Display the specified requisition.
      */
-public function show(string $noReq): JsonResponse
-{
-    $requisition = Requisition::with(['replacementEmployee:id,npk,name', 'assignedEmployee:id,npk,name', 'assignedIntern:id,npk,name'])
-        ->findOrFail($noReq);
+    public function show(string $noReq): JsonResponse
+    {
+        $requisition = Requisition::with(['replacementEmployee:id,npk,name', 'assignedEmployee:id,npk,name', 'assignedIntern:id,npk,name'])
+            ->findOrFail($noReq);
 
-    if (!$this->canAccessRequisition($requisition)) {
+        if (!$this->canViewRequisition($requisition)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized access to this FPTK',
+            ], 403);
+        }
+
         return response()->json([
-            'success' => false,
-            'message' => 'Unauthorized access to this FPTK',
-        ], 403);
+            'success' => true,
+            'data'    => $requisition,
+        ]);
     }
 
-    return response()->json([
-        'success' => true,
-        'data'    => $requisition,
-    ]);
-}
     /**
      * Update the specified requisition in storage.
      */
@@ -354,7 +363,8 @@ public function show(string $noReq): JsonResponse
      * after CV screening is completed.
      *
      * Not yet inserted into employees/interns — waiting for the requester
-     * to complete area/line (see assignAreaLine()).
+     * (or someone from the same department) to complete area/line
+     * (see assignAreaLine()).
      */
     public function assignManpower(AssignManpowerRequest $request, string $noReq): JsonResponse
     {
@@ -389,7 +399,9 @@ public function show(string $noReq): JsonResponse
     }
 
     /**
-     * Requester completes the area (and line if department is Manufacturing).
+     * Requester (or anyone from the same department) completes the area
+     * (and line if department is Manufacturing) — only after HR Admin has
+     * filled in the employee data (hrd_assigned_at).
      * After this, the system automatically inserts the final record into
      * employees or interns depending on apprenticeship_period, then the
      * FPTK status becomes "Manpower Assigned".
@@ -397,6 +409,17 @@ public function show(string $noReq): JsonResponse
     public function assignAreaLine(AssignAreaLineRequest $request, string $noReq): JsonResponse
     {
         $requisition = Requisition::findOrFail($noReq);
+
+        // Department-based access: user satu department dengan FPTK ini
+        // (atau requester/manager/division/director/supervisor aslinya)
+        // boleh mengisi area/line, tapi hanya setelah HR Admin mengisi
+        // data karyawan terlebih dahulu (dicek di bawah).
+        if (!$this->canViewRequisition($requisition)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized access to this FPTK',
+            ], 403);
+        }
 
         if (is_null($requisition->hrd_assigned_at)) {
             return response()->json([
@@ -413,51 +436,50 @@ public function show(string $noReq): JsonResponse
         }
 
         $requisition = DB::transaction(function () use ($requisition, $request) {
-            $requisition->update([
-                'assigned_area'       => $request->area,
-                'assigned_line'       => $request->line,
-                'area_line_filled_at' => now(),
-            ]);
+           $requisition->update([
+            'area_id'             => $request->area_id,
+            'line_id'             => $request->line_id,
+            'station_id'          => $request->station_id,
+            'area_line_filled_at' => now(),
+        ]);
 
             $departmentId = Department::where('name', $requisition->department)->value('id');
             $sectionId    = Section::where('name', $requisition->section)->value('id');
 
-           $commonAttributes = [
-    'npk'            => $requisition->assigned_npk,
-    'name'           => $requisition->assigned_name,
-    'gender'         => 'male',      // ← required field, defaults to male since FPTK has no gender data
-    'department_id'  => $departmentId,
-    'section_id'     => $sectionId,
-    'jabatan'        => $requisition->position,
-    'start_contract' => $requisition->assigned_start_contract,
-    'end_contract'   => $requisition->assigned_end_contract,
-    'area'           => $requisition->assigned_area,
-    'line'           => $requisition->assigned_line, // ← line is now saved as well
-];
- 
-if ($requisition->apprenticeship_period) {
-    $intern = Intern::create($commonAttributes);
-    $requisition->intern_id = $intern->id;
-} else {
-    // Map FPTK status to employee employment_type
-    // FPTK status may contain: Permanent, Contract, Magang, etc.
-    $statusMap = [
-        'Permanent' => 'permanent',
-        'Contract'  => 'contract',
-        'Magang'    => 'contract', // fallback in case it occurs
-    ];
-    $employmentType = $statusMap[$requisition->status] ?? 'permanent';
- 
-    $employee = Employee::create(array_merge($commonAttributes, [
-        'employment_type' => $employmentType,
-        'status'          => 'active',
-    ]));
-    $requisition->employee_id = $employee->id;
-}
- 
-// Final status once the process is complete
-$requisition->approval_status = 'Manpower Assigned';
-$requisition->save();
+            $commonAttributes = [
+                'npk'            => $requisition->assigned_npk,
+                'name'           => $requisition->assigned_name,
+                'gender'         => 'male',    
+                'department_id'  => $departmentId,
+                'section_id'     => $sectionId,
+                'jabatan'        => $requisition->position,
+                'start_contract' => $requisition->assigned_start_contract,
+                'end_contract'   => $requisition->assigned_end_contract,
+                'area_id'        => $requisition->area_id,
+                'line_id'        => $requisition->line_id,
+                'station_id'     => $requisition->station_id,
+            ];
+
+            if ($requisition->apprenticeship_period) {
+                $intern = Intern::create($commonAttributes);
+                $requisition->intern_id = $intern->id;
+            } else {
+              $statusMap = [
+                    'Permanent' => 'permanent',
+                    'Contract'  => 'contract',
+                    'Magang'    => 'contract', 
+                ];
+                $employmentType = $statusMap[$requisition->status] ?? 'contract';
+
+                $employee = Employee::create(array_merge($commonAttributes, [
+                    'employment_type' => $employmentType,
+                    'status'          => 'active',
+                ]));
+                $requisition->employee_id = $employee->id;
+            }
+
+            $requisition->approval_status = 'Manpower Assigned';
+            $requisition->save();
 
             return $requisition;
         });
@@ -514,11 +536,32 @@ $requisition->save();
         $roleName = $user->roleLevel?->name;
 
         if ($roleName === 'Manager') {
-            $query->where('manager', $user->name)->whereNotNull('manager_approved_at');
+            $query->where('manager', $user->name)
+                  ->where(function ($q) use ($user) {
+                      $q->whereNotNull('manager_approved_at')
+                        ->orWhere(function ($q2) use ($user) {
+                            $q2->where('approval_status', 'Rejected')
+                               ->where('rejected_by', $user->name);
+                        });
+                  });
         } elseif ($roleName === 'Division Head') {
-            $query->where('division', $user->name)->whereNotNull('division_approved_at');
+            $query->where('division', $user->name)
+                  ->where(function ($q) use ($user) {
+                      $q->whereNotNull('division_approved_at')
+                        ->orWhere(function ($q2) use ($user) {
+                            $q2->where('approval_status', 'Rejected')
+                               ->where('rejected_by', $user->name);
+                        });
+                  });
         } elseif ($roleName === 'Director') {
-            $query->where('director', $user->name)->whereNotNull('director_approved_at');
+            $query->where('director', $user->name)
+                  ->where(function ($q) use ($user) {
+                      $q->whereNotNull('director_approved_at')
+                        ->orWhere(function ($q2) use ($user) {
+                            $q2->where('approval_status', 'Rejected')
+                               ->where('rejected_by', $user->name);
+                        });
+                  });
         } else {
             return response()->json([
                 'success' => true,
@@ -560,8 +603,8 @@ $requisition->save();
      */
     public function printView(string $noReq)
     {
-         $requisition = Requisition::with('replacementEmployee:id,npk,name')  // ← added relation
-        ->findOrFail($noReq);
+        $requisition = Requisition::with('replacementEmployee:id,npk,name')  // ← added relation
+            ->findOrFail($noReq);
 
         if (is_string($requisition->technical_skill)) {
             $requisition->technical_skill = json_decode($requisition->technical_skill, true)
@@ -576,7 +619,28 @@ $requisition->save();
     }
 
     /**
-     * Check if user has access to the requisition.
+     * Check if user can view the requisition detail, or fill in area/line
+     * (assignAreaLine). Includes department-based access in addition to
+     * the parties already covered by canAccessRequisition().
+     */
+    private function canViewRequisition(Requisition $requisition): bool
+    {
+        if ($this->canAccessRequisition($requisition)) {
+            return true;
+        }
+
+        $user = Auth::user();
+
+        return $user
+            && $user->department?->name
+            && $user->department->name === $requisition->department;
+    }
+
+    /**
+     * Check if user has access to update/delete the requisition.
+     * NOTE: intentionally does NOT include department-based access —
+     * being from the same department only grants view + fill-area/line
+     * rights (see canViewRequisition()), not edit/delete rights.
      */
     private function canAccessRequisition(Requisition $requisition): bool
     {

@@ -19,15 +19,20 @@ class Employee extends Model
         'employment_type',
         'start_contract',
         'end_contract',
-        'station',
-        'area',
-        'line', // ── ditambah: kolom baru dari migration ──
+       'area_id',
+        'line_id',
+        'station_id',
     ];
 
-    protected $casts = [
-        'start_contract' => 'date',
-        'end_contract'   => 'date',
-    ];
+ protected $casts = [
+    'start_contract' => 'date',
+    'end_contract'   => 'date',
+    'department_id'  => 'integer',
+    'section_id'     => 'integer',
+    'station_id'     => 'integer',
+    'line_id'        => 'integer',
+    'area_id'        => 'integer',
+];
 
     public function department(): BelongsTo
     {
@@ -51,4 +56,19 @@ class Employee extends Model
         if (!$this->end_contract) return null;
         return (int) Carbon::today()->diffInDays($this->end_contract, false);
     }
+
+    public function station()
+{
+    return $this->belongsTo(Station::class);
+}
+
+public function area()
+{
+    return $this->belongsTo(Area::class);
+}
+
+public function line()
+{
+    return $this->belongsTo(Line::class);
+}
 }

@@ -49,14 +49,22 @@ class User extends Authenticatable implements JWTSubject
      *
      * @return array<string, string>
      */
-    protected function casts(): array
-    {
-        return [
-            'password' => 'hashed',
-            'last_login_at' => 'datetime',
-            'can_view_manpower' => 'boolean',
-        ];
-    }
+ protected function casts(): array
+{
+    return [
+        'password'             => 'hashed',
+        'last_login_at'        => 'datetime',
+        'can_view_manpower'    => 'boolean',
+        'is_admin'             => 'boolean',
+        'department_id'        => 'integer',
+        'section_id'           => 'integer',
+        'role_level_id'        => 'integer',
+        'director_id'          => 'integer',
+        'approver_manager_id'  => 'integer',
+        'approver_division_id' => 'integer',
+        'approver_director_id' => 'integer',
+    ];
+}
 
     /**
      * Get the department that owns the user.

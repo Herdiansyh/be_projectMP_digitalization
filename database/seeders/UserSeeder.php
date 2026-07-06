@@ -116,7 +116,7 @@ class UserSeeder extends Seeder
 
             // ── Section Head ──
             [
-                'npk'           => 'EMP0011',
+                'npk'           => '06',
                 'username'      => 'sectionhead1',
                 'name'          => 'Doni Prasetyo',
                 'email'         => 'sectionhead1@gmail.com',
@@ -160,7 +160,7 @@ class UserSeeder extends Seeder
 
             // ── hradmin ──
             [
-                'npk'           => 'EMP0016',
+                'npk'           => '05',
                 'username'      => 'hradmin1',
                 'name'          => 'Eko Purnomo',
                 'email'         => 'hradmin1@gmail.com',

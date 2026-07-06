@@ -18,8 +18,7 @@ class EmployeeController extends Controller
     public function index(Request $request): JsonResponse
 {
     try {
-        $query = Employee::with(['department', 'section']);
-
+$query = Employee::with(['department', 'section', 'area', 'line', 'station']);
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
@@ -80,8 +79,7 @@ class EmployeeController extends Controller
     public function show(Employee $employee): JsonResponse
     {
         try {
-            $employee->load(['department', 'section']);
-
+       $employee->load(['department', 'section', 'area', 'line', 'station']);
             return $this->successResponse(
                 new EmployeeResource($employee),
                 'Employee retrieved successfully'
@@ -95,7 +93,7 @@ class EmployeeController extends Controller
     {
         try {
             $employee->update($request->validated());
-            $employee->load(['department', 'section']);
+            $employee->load(['department', 'section', 'area', 'line', 'station']);
 
             return $this->successResponse(
                 new EmployeeResource($employee),

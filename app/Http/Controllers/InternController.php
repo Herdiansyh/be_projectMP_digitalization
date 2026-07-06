@@ -18,7 +18,7 @@ class InternController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            $query = Intern::with(['department', 'section']);
+            $query = Intern::with(['department', 'section', 'area', 'line', 'station']);
 
             if ($request->filled('search')) {
                 $search = $request->search;
@@ -56,26 +56,26 @@ class InternController extends Controller
         }
     }
 
-    public function store(StoreInternRequest $request): JsonResponse
-    {
-        try {
-            $intern = Intern::create($request->validated());
-            $intern->load(['department', 'section']);
+   public function store(StoreInternRequest $request): JsonResponse
+{
+    try {
+        $intern = Intern::create($request->validated());
+        $intern->load(['department', 'section', 'area', 'line', 'station']);
 
-            return $this->successResponse(
-                new InternResource($intern),
-                'Intern created successfully',
-                201
-            );
-        } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
-        }
+        return $this->successResponse(
+            new InternResource($intern),
+            'Intern created successfully',
+            201
+        );
+    } catch (Exception $e) {
+        return $this->errorResponse($e->getMessage(), 500);
     }
+}
 
     public function show(Intern $intern): JsonResponse
     {
         try {
-            $intern->load(['department', 'section']);
+            $intern->load(['department', 'section', 'area', 'line', 'station']);
 
             return $this->successResponse(
                 new InternResource($intern),
@@ -90,7 +90,7 @@ class InternController extends Controller
     {
         try {
             $intern->update($request->validated());
-            $intern->load(['department', 'section']);
+            $intern->load(['department', 'section', 'area', 'line', 'station']);
 
             return $this->successResponse(
                 new InternResource($intern),

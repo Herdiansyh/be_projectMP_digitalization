@@ -21,24 +21,38 @@ class AssignAreaLineRequest extends FormRequest
         return $this->requisition;
     }
 
-    public function authorize(): bool
-    {
-        $user = Auth::user();
+  public function authorize(): bool
+{
+    $user = Auth::user();
 
-        return $user && $user->name === $this->requisition()->requester_name;
+    if (!$user) {
+        return false;
     }
+
+    $roleName = $user->roleLevel?->name;
+
+    // Admin tidak punya batasan department
+    if ($roleName === 'Admin') {
+        return true;
+    }
+
+    // User dari department yang sama dengan FPTK ini boleh mengisi area/line.
+    return $user->department
+        && $user->department->name === $this->requisition()->department;
+}
 
     public function rules(): array
-    {
-        $lineRule = $this->requisition()->requiresLine()
-            ? 'required|string|max:255'
-            : 'nullable|string|max:255';
+{
+    $lineRule = $this->requisition()->requiresLine()
+        ? 'required|string|max:255'
+        : 'nullable|string|max:255';
 
-        return [
-            'area' => 'required|string|max:255',
-            'line' => $lineRule,
-        ];
-    }
+    return [
+        'area_id'    => 'required|exists:areas,id',
+        'line_id'    => 'nullable|exists:lines,id',
+        'station_id' => 'nullable|exists:stations,id',
+    ];
+}
 
     public function messages(): array
     {
@@ -52,7 +66,7 @@ class AssignAreaLineRequest extends FormRequest
     {
         throw new HttpResponseException(response()->json([
             'success' => false,
-            'message' => 'Only the requester who created this FPTK can fill in the area/line.',
+            'message' => 'Only users from the same department as this FPTK can fill in the area/line.',
         ], 403));
     }
 

@@ -64,9 +64,15 @@ class Requisition extends Model
         'hrd_assigned_by',
         'assigned_area',
         'assigned_line',
+        'assigned_station',
         'area_line_filled_at',
         'employee_id',
         'intern_id',
+        'rejected_by',
+        'rejected_at', 
+        'area_id',
+'line_id',
+'station_id', 
     ];
 
     protected $casts = [
@@ -88,7 +94,14 @@ class Requisition extends Model
         'assigned_end_contract'   => 'date',
         'hrd_assigned_at'         => 'datetime',
         'area_line_filled_at'     => 'datetime',
-    ];
+            // ── Tambahan: FK integer casts untuk konsistensi di sqlsrv ──
+        'replacement_employee_id' => 'integer',
+        'employee_id'             => 'integer',
+        'intern_id'                => 'integer',
+        'station_id'               => 'integer',
+        'area_id'    => 'integer',
+        'line_id'    => 'integer',
+        ];
     protected $appends = ['needs_area_line'];
  
     // ── Scopes ──────────────────────────────────────────────────────────────
@@ -108,7 +121,10 @@ class Requisition extends Model
     {
         return $query->where('division', $division);
     }
-
+public function station()
+{
+    return $this->belongsTo(Station::class);
+}
     public function scopeByDirector($query, $director)
     {
         return $query->where('director', $director);
@@ -197,4 +213,14 @@ class Requisition extends Model
     {
         return $this->belongsTo(Intern::class, 'intern_id');
     }
+
+    public function area()
+{
+    return $this->belongsTo(Area::class);
+}
+
+public function line()
+{
+    return $this->belongsTo(Line::class);
+}
 }

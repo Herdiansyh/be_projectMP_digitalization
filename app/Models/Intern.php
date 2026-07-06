@@ -18,16 +18,20 @@ class Intern extends Model
         'jabatan',
         'start_contract',
         'end_contract',
-        'station',
-        'area',
-        'line',
+        'area_id',
+'line_id',
+'station_id',
     ];
 
-    protected $casts = [
+  protected $casts = [
         'start_contract' => 'date',
         'end_contract'   => 'date',
+        'department_id'  => 'integer',
+        'section_id'     => 'integer',
+        'station_id'     => 'integer',
+        'line_id'        => 'integer',
+        'area_id'        => 'integer',
     ];
-
     public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);
@@ -37,7 +41,10 @@ class Intern extends Model
     {
         return $this->belongsTo(Section::class);
     }
-
+public function station()
+{
+    return $this->belongsTo(Station::class);
+}
 
     public function getIsNearExpiryAttribute(): bool
 {
@@ -50,5 +57,14 @@ public function getDaysUntilExpiryAttribute(): ?int
 {
     if (!$this->end_contract) return null;
     return (int) Carbon::today()->diffInDays($this->end_contract, false);
+}
+public function area()
+{
+    return $this->belongsTo(Area::class);
+}
+
+public function line()
+{
+    return $this->belongsTo(Line::class);
 }
 }

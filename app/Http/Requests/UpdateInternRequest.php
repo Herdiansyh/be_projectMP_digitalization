@@ -14,23 +14,24 @@ class UpdateInternRequest extends FormRequest
     }
 
     public function rules(): array
-    {
-        $internId = $this->route('intern')?->id ?? $this->route('intern');
+{
+    $internId = $this->route('intern')?->id ?? $this->route('intern');
 
-        return [
-            'npk'            => ['sometimes', 'string', "unique:interns,npk,{$internId}"],
-            'name'           => ['sometimes', 'string', 'max:255'],
-            'gender'         => ['sometimes', 'in:male,female'],
-            'department_id'  => ['nullable', 'exists:departments,id'],
-            'section_id'     => ['nullable', 'exists:sections,id'],
-            'role_level'     => ['nullable', 'string', 'max:255'],
-            'jabatan'        => ['nullable', 'string', 'max:255'],
-            'area'           => ['nullable', 'string', 'max:255'],
-            'station'        => ['nullable', 'string', 'max:255'],
-            'start_contract' => ['sometimes', 'date'],
-            'end_contract'   => ['sometimes', 'date', 'after:start_contract'],
-        ];
-    }
+    return [
+        'npk'            => ['sometimes', 'string', "unique:interns,npk,{$internId}"],
+        'name'           => ['sometimes', 'string', 'max:255'],
+        'gender'         => ['sometimes', 'in:male,female'],
+        'department_id'  => ['nullable', 'exists:departments,id'],
+        'section_id'     => ['nullable', 'exists:sections,id'],
+        'role_level'     => ['nullable', 'string', 'max:255'],
+        'jabatan'        => ['nullable', 'string', 'max:255'],
+        'area_id'        => ['nullable', 'exists:areas,id'],
+        'line_id'        => ['nullable', 'exists:lines,id'],
+        'station_id'     => ['nullable', 'exists:stations,id'],
+        'start_contract' => ['sometimes', 'date'],
+        'end_contract'   => ['sometimes', 'date', 'after:start_contract'],
+    ];
+}
 
     public function messages(): array
     {

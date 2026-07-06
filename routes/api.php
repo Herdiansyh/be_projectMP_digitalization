@@ -4,9 +4,12 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\FptkController;
 use App\Http\Controllers\ApprovalController;
+use App\Http\Controllers\AreaController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\InternController;
+use App\Http\Controllers\LineController;
 use App\Http\Controllers\MasterDataController;
+use App\Http\Controllers\StationController;
 use App\Http\Controllers\UserController;
 
 Route::prefix('auth')->group(function () {
@@ -68,5 +71,28 @@ Route::middleware('manpower')->prefix('interns')->group(function () {
     Route::get('/{intern}',    [InternController::class, 'show']);
     Route::put('/{intern}',    [InternController::class, 'update']);
     Route::delete('/{intern}', [InternController::class, 'destroy']);
+});
+
+Route::middleware('admin')->prefix('stations')->group(function () {
+    Route::post('/', [StationController::class, 'store']);
+    Route::put('/{station}', [StationController::class, 'update']);
+    Route::delete('/{station}', [StationController::class, 'destroy']);
+});
+Route::get('/stations', [StationController::class, 'index']); // GET boleh diakses semua user login (untuk dropdown Area/Line)
+Route::get('/stations/{station}', [StationController::class, 'show']);
+
+Route::get('/areas', [AreaController::class, 'index']);
+Route::get('/areas/{area}', [AreaController::class, 'show']);
+Route::middleware('admin')->prefix('areas')->group(function () {
+    Route::post('/', [AreaController::class, 'store']);
+    Route::put('/{area}', [AreaController::class, 'update']);
+    Route::delete('/{area}', [AreaController::class, 'destroy']);
+});
+Route::get('/lines', [LineController::class, 'index']);
+Route::get('/lines/{line}', [LineController::class, 'show']);
+Route::middleware('admin')->prefix('lines')->group(function () {
+    Route::post('/', [LineController::class, 'store']);
+    Route::put('/{line}', [LineController::class, 'update']);
+    Route::delete('/{line}', [LineController::class, 'destroy']);
 });
 });
