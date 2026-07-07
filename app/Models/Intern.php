@@ -19,8 +19,9 @@ class Intern extends Model
         'start_contract',
         'end_contract',
         'area_id',
-'line_id',
-'station_id',
+        'line_id',
+        'station_id',
+        'no_req',
     ];
 
   protected $casts = [
@@ -66,5 +67,10 @@ public function area()
 public function line()
 {
     return $this->belongsTo(Line::class);
+}
+
+public function requisition()
+{
+    return $this->belongsTo(Requisition::class, 'no_req', 'no_req');
 }
 }

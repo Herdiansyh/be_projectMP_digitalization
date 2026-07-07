@@ -71,8 +71,9 @@ class Requisition extends Model
         'rejected_by',
         'rejected_at', 
         'area_id',
-'line_id',
-'station_id', 
+        'line_id',
+        'station_id', 
+        'pending_candidates',
     ];
 
     protected $casts = [
@@ -101,6 +102,8 @@ class Requisition extends Model
         'station_id'               => 'integer',
         'area_id'    => 'integer',
         'line_id'    => 'integer',
+        'pending_candidates' => 'array',
+
         ];
     protected $appends = ['needs_area_line'];
  
@@ -139,13 +142,11 @@ public function station()
      * FPTK yang sudah diisi NPK/kontrak oleh HRD tapi requester
      * belum melengkapi area/line. Dipakai untuk badge di FPTK List.
      */
-    public function scopeNeedsAreaLine($query)
-    {
-        return $query->whereNotNull('hrd_assigned_at')
-            ->whereNull('employee_id')
-            ->whereNull('intern_id');
-    }
-
+public function scopeNeedsAreaLine($query)
+{
+    return $query->whereNotNull('hrd_assigned_at')
+        ->whereNull('area_line_filled_at');
+}
     // ── Status Helpers ───────────────────────────────────────────────────────
 
     public function isManagerApproved(): bool
@@ -190,13 +191,12 @@ public function station()
      * True jika HRD sudah submit NPK/kontrak tapi area/line belum diisi
      * requester — dipakai FE untuk menampilkan badge + baris berwarna.
      */
-    public function getNeedsAreaLineAttribute(): bool
-    {
-        return !is_null($this->hrd_assigned_at)
-            && is_null($this->employee_id)
-            && is_null($this->intern_id);
-    }
-
+   
+public function getNeedsAreaLineAttribute(): bool
+{
+    return !is_null($this->hrd_assigned_at)
+        && is_null($this->area_line_filled_at);
+}
     // ── Relasi ───────────────────────────────────────────────────────────────
 
     public function replacementEmployee(): BelongsTo
@@ -222,5 +222,15 @@ public function station()
 public function line()
 {
     return $this->belongsTo(Line::class);
+}
+
+public function employees()
+{
+    return $this->hasMany(Employee::class, 'no_req', 'no_req');
+}
+
+public function interns()
+{
+    return $this->hasMany(Intern::class, 'no_req', 'no_req');
 }
 }

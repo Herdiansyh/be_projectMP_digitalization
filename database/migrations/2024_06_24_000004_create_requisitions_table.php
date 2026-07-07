@@ -38,7 +38,6 @@ return new class extends Migration
             $table->text('unplanned_reason')->nullable();
 
             // ── Approval flow ──
-            // Default diselaraskan dengan FptkController::store() (bahasa Inggris)
             $table->string('approval_status')->default('Waiting for Manager Approval');
             $table->string('manager')->nullable();
             $table->string('division')->nullable();
@@ -46,17 +45,13 @@ return new class extends Migration
             $table->string('supervisor')->nullable();
             $table->boolean('hrd_approved')->default(false);
             $table->text('rejection_reason')->nullable();
-            // Menandai siapa & kapan FPTK ini di-reject, independen dari role
-            // approver-nya (manager/division/director), karena kolom
-            // manager/division/director hanya menyimpan approver chain saat
-            // FPTK dibuat — bukan siapa yang benar-benar mengambil aksi.
             $table->string('rejected_by')->nullable();
             $table->timestamp('rejected_at')->nullable();
             $table->timestamp('manager_approved_at')->nullable();
             $table->timestamp('division_approved_at')->nullable();
             $table->timestamp('director_approved_at')->nullable();
 
-            // ── HRD processing (dulu migration terpisah) ──
+            // ── HRD processing ──
             $table->timestamp('hrd_processed_at')->nullable();
             $table->string('hrd_processed_by')->nullable();
 
@@ -68,13 +63,25 @@ return new class extends Migration
             $table->timestamp('hrd_assigned_at')->nullable();
             $table->string('hrd_assigned_by')->nullable();
 
-            // ── Area/line assignment oleh requester (step 5) ──
-            $table->string('assigned_area')->nullable();
-            $table->string('assigned_line')->nullable();
+            // Menampung array kandidat (npk, name, start_contract, end_contract)
+            // sementara, di antara tahap assignManpower dan assignAreaLine
+            // (mendukung banyak kandidat per FPTK — lihat FptkController).
+            $table->json('pending_candidates')->nullable();
+
+            // ── Area/line/station assignment oleh requester (step 5) ──
             $table->string('assigned_station')->nullable();
             $table->timestamp('area_line_filled_at')->nullable();
+
+            // Kolom lama, dipertahankan untuk kompatibilitas relasi
+            // assignedEmployee()/assignedIntern() — tidak lagi diisi
+            // di flow multi-kandidat (lihat Requisition::employees()/interns()
+            // yang menghubungkan lewat employees.no_req / interns.no_req).
             $table->unsignedBigInteger('employee_id')->nullable();
             $table->unsignedBigInteger('intern_id')->nullable();
+
+            $table->foreignId('area_id')->nullable();
+            $table->foreignId('line_id')->nullable();
+            $table->foreignId('station_id')->nullable();
 
             $table->timestamps();
 
@@ -88,6 +95,11 @@ return new class extends Migration
             $table->index('supervisor');
             $table->index('rejected_by');
             $table->index('assigned_station');
+
+            // ── Foreign keys ──
+            $table->foreign('area_id')->references('id')->on('areas')->onDelete('no action');
+            $table->foreign('line_id')->references('id')->on('lines')->onDelete('no action');
+            $table->foreign('station_id')->references('id')->on('stations')->nullOnDelete();
         });
     }
 

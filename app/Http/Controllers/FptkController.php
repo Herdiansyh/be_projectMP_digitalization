@@ -214,9 +214,15 @@ class FptkController extends Controller
      */
     public function show(string $noReq): JsonResponse
     {
-        $requisition = Requisition::with(['replacementEmployee:id,npk,name', 'assignedEmployee:id,npk,name', 'assignedIntern:id,npk,name'])
-            ->findOrFail($noReq);
-
+      $requisition = Requisition::with([
+        'replacementEmployee:id,npk,name',
+        'employees.area:id,name',
+        'employees.line:id,name',
+        'employees.station:id,name',
+        'interns.area:id,name',
+        'interns.line:id,name',
+        'interns.station:id,name',
+    ])->findOrFail($noReq);
         if (!$this->canViewRequisition($requisition)) {
             return response()->json([
                 'success' => false,
@@ -366,134 +372,233 @@ class FptkController extends Controller
      * (or someone from the same department) to complete area/line
      * (see assignAreaLine()).
      */
-    public function assignManpower(AssignManpowerRequest $request, string $noReq): JsonResponse
-    {
-        $user = Auth::user();
-        $requisition = Requisition::findOrFail($noReq);
+    // public function assignManpower(AssignManpowerRequest $request, string $noReq): JsonResponse
+    // {
+    //     $user = Auth::user();
+    //     $requisition = Requisition::findOrFail($noReq);
 
-        if ($requisition->approval_status !== 'Processed HRD') {
-            return response()->json([
-                'success' => false,
-                'message' => 'FPTK must have Processed HRD status before manpower data can be filled in.',
-            ], 422);
-        }
+    //     if ($requisition->approval_status !== 'Processed HRD') {
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => 'FPTK must have Processed HRD status before manpower data can be filled in.',
+    //         ], 422);
+    //     }
 
-        $requisition->update([
-            'assigned_npk'            => $request->npk,
-            'assigned_name'           => $request->name,
-            'assigned_start_contract' => $request->start_contract,
-            'assigned_end_contract'   => $request->end_contract,
-            'hrd_assigned_at'         => now(),
-            'hrd_assigned_by'         => $user->name,
-        ]);
+    //     $requisition->update([
+    //         'assigned_npk'            => $request->npk,
+    //         'assigned_name'           => $request->name,
+    //         'assigned_start_contract' => $request->start_contract,
+    //         'assigned_end_contract'   => $request->end_contract,
+    //         'hrd_assigned_at'         => now(),
+    //         'hrd_assigned_by'         => $user->name,
+    //     ]);
 
-        // TODO: send a notification to the requester (the badge already
-        // appears automatically via scopeNeedsAreaLine / the needs_area_line
-        // accessor on the FPTK list).
+    //     // TODO: send a notification to the requester (the badge already
+    //     // appears automatically via scopeNeedsAreaLine / the needs_area_line
+    //     // accessor on the FPTK list).
 
+    //     return response()->json([
+    //         'success' => true,
+    //         'message' => "Manpower data for FPTK {$noReq} has been saved. Waiting for the requester to complete area/line.",
+    //         'data'    => $requisition,
+    //     ]);
+    // }
+public function assignManpower(AssignManpowerRequest $request, string $noReq): JsonResponse
+{
+    $user = Auth::user();
+    $requisition = Requisition::findOrFail($noReq);
+
+    if ($requisition->approval_status !== 'Processed HRD') {
         return response()->json([
-            'success' => true,
-            'message' => "Manpower data for FPTK {$noReq} has been saved. Waiting for the requester to complete area/line.",
-            'data'    => $requisition,
-        ]);
+            'success' => false,
+            'message' => 'FPTK must have Processed HRD status before manpower data can be filled in.',
+        ], 422);
     }
 
-    /**
-     * Requester (or anyone from the same department) completes the area
-     * (and line if department is Manufacturing) — only after HR Admin has
-     * filled in the employee data (hrd_assigned_at).
-     * After this, the system automatically inserts the final record into
-     * employees or interns depending on apprenticeship_period, then the
-     * FPTK status becomes "Manpower Assigned".
-     */
-    public function assignAreaLine(AssignAreaLineRequest $request, string $noReq): JsonResponse
-    {
-        $requisition = Requisition::findOrFail($noReq);
+    $requisition->update([
+        'pending_candidates' => $request->input('candidates'),
+        'hrd_assigned_at'    => now(),
+        'hrd_assigned_by'    => $user->name,
+    ]);
 
-        // Department-based access: user satu department dengan FPTK ini
-        // (atau requester/manager/division/director/supervisor aslinya)
-        // boleh mengisi area/line, tapi hanya setelah HR Admin mengisi
-        // data karyawan terlebih dahulu (dicek di bawah).
-        if (!$this->canViewRequisition($requisition)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized access to this FPTK',
-            ], 403);
-        }
+    return response()->json([
+        'success' => true,
+        'message' => "Manpower data for FPTK {$noReq} has been saved (" . count($request->input('candidates')) . " candidate(s)). Waiting for the requester to complete area/line.",
+        'data'    => $requisition,
+    ]);
+}
+   
+    // public function assignAreaLine(AssignAreaLineRequest $request, string $noReq): JsonResponse
+    // {
+    //     $requisition = Requisition::findOrFail($noReq);
 
-        if (is_null($requisition->hrd_assigned_at)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'HRD has not yet filled in the NPK/contract data for this FPTK.',
-            ], 422);
-        }
+    //     // Department-based access: user satu department dengan FPTK ini
+    //     // (atau requester/manager/division/director/supervisor aslinya)
+    //     // boleh mengisi area/line, tapi hanya setelah HR Admin mengisi
+    //     // data karyawan terlebih dahulu (dicek di bawah).
+    //     if (!$this->canViewRequisition($requisition)) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => 'Unauthorized access to this FPTK',
+    //         ], 403);
+    //     }
 
-        if (!is_null($requisition->employee_id) || !is_null($requisition->intern_id)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Area/line for this FPTK has already been filled in.',
-            ], 422);
-        }
+    //     if (is_null($requisition->hrd_assigned_at)) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => 'HRD has not yet filled in the NPK/contract data for this FPTK.',
+    //         ], 422);
+    //     }
 
-        $requisition = DB::transaction(function () use ($requisition, $request) {
-           $requisition->update([
-            'area_id'             => $request->area_id,
-            'line_id'             => $request->line_id,
-            'station_id'          => $request->station_id,
-            'area_line_filled_at' => now(),
-        ]);
+    //     if (!is_null($requisition->employee_id) || !is_null($requisition->intern_id)) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => 'Area/line for this FPTK has already been filled in.',
+    //         ], 422);
+    //     }
 
-            $departmentId = Department::where('name', $requisition->department)->value('id');
-            $sectionId    = Section::where('name', $requisition->section)->value('id');
+    //     $requisition = DB::transaction(function () use ($requisition, $request) {
+    //        $requisition->update([
+    //         'area_id'             => $request->area_id,
+    //         'line_id'             => $request->line_id,
+    //         'station_id'          => $request->station_id,
+    //         'area_line_filled_at' => now(),
+    //     ]);
 
-            $commonAttributes = [
-                'npk'            => $requisition->assigned_npk,
-                'name'           => $requisition->assigned_name,
-                'gender'         => 'male',    
-                'department_id'  => $departmentId,
-                'section_id'     => $sectionId,
-                'jabatan'        => $requisition->position,
-                'start_contract' => $requisition->assigned_start_contract,
-                'end_contract'   => $requisition->assigned_end_contract,
-                'area_id'        => $requisition->area_id,
-                'line_id'        => $requisition->line_id,
-                'station_id'     => $requisition->station_id,
-            ];
+    //         $departmentId = Department::where('name', $requisition->department)->value('id');
+    //         $sectionId    = Section::where('name', $requisition->section)->value('id');
 
-            if ($requisition->apprenticeship_period) {
-                $intern = Intern::create($commonAttributes);
-                $requisition->intern_id = $intern->id;
-            } else {
-              $statusMap = [
-                    'Permanent' => 'permanent',
-                    'Contract'  => 'contract',
-                    'Magang'    => 'contract', 
-                ];
-                $employmentType = $statusMap[$requisition->status] ?? 'contract';
+    //         $commonAttributes = [
+    //             'npk'            => $requisition->assigned_npk,
+    //             'name'           => $requisition->assigned_name,
+    //             'gender'         => 'male',    
+    //             'department_id'  => $departmentId,
+    //             'section_id'     => $sectionId,
+    //             'jabatan'        => $requisition->position,
+    //             'start_contract' => $requisition->assigned_start_contract,
+    //             'end_contract'   => $requisition->assigned_end_contract,
+    //             'area_id'        => $requisition->area_id,
+    //             'line_id'        => $requisition->line_id,
+    //             'station_id'     => $requisition->station_id,
+    //         ];
 
-                $employee = Employee::create(array_merge($commonAttributes, [
-                    'employment_type' => $employmentType,
-                    'status'          => 'active',
-                ]));
-                $requisition->employee_id = $employee->id;
-            }
+    //         if ($requisition->apprenticeship_period) {
+    //             $intern = Intern::create($commonAttributes);
+    //             $requisition->intern_id = $intern->id;
+    //         } else {
+    //           $statusMap = [
+    //                 'Permanent' => 'permanent',
+    //                 'Contract'  => 'contract',
+    //                 'Magang'    => 'contract', 
+    //             ];
+    //             $employmentType = $statusMap[$requisition->status] ?? 'contract';
 
-            $requisition->approval_status = 'Manpower Assigned';
-            $requisition->save();
+    //             $employee = Employee::create(array_merge($commonAttributes, [
+    //                 'employment_type' => $employmentType,
+    //                 'status'          => 'active',
+    //             ]));
+    //             $requisition->employee_id = $employee->id;
+    //         }
 
-            return $requisition;
-        });
+    //         $requisition->approval_status = 'Manpower Assigned';
+    //         $requisition->save();
 
-        return response()->json([
-            'success' => true,
-            'message' => "FPTK {$noReq} completed — manpower record has been created.",
-            'data'    => $requisition,
-        ]);
-    }
+    //         return $requisition;
+    //     });
+
+    //     return response()->json([
+    //         'success' => true,
+    //         'message' => "FPTK {$noReq} completed — manpower record has been created.",
+    //         'data'    => $requisition,
+    //     ]);
+    // }
 
     /**
      * Get requisitions pending approval for the current user.
      */
+
+    public function assignAreaLine(AssignAreaLineRequest $request, string $noReq): JsonResponse
+{
+    $requisition = Requisition::findOrFail($noReq);
+
+    if (!$this->canViewRequisition($requisition)) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Unauthorized access to this FPTK',
+        ], 403);
+    }
+
+    if (is_null($requisition->hrd_assigned_at)) {
+        return response()->json([
+            'success' => false,
+            'message' => 'HRD has not yet filled in the NPK/contract data for this FPTK.',
+        ], 422);
+    }
+
+    if (empty($requisition->pending_candidates)) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Area/line for this FPTK has already been filled in, or no pending candidates were found.',
+        ], 422);
+    }
+
+    $created = DB::transaction(function () use ($requisition, $request) {
+        $pending = collect($requisition->pending_candidates)->keyBy('npk');
+        $departmentId = Department::where('name', $requisition->department)->value('id');
+        $sectionId    = Section::where('name', $requisition->section)->value('id');
+
+        $statusMap = [
+            'Permanent' => 'permanent',
+            'Contract'  => 'contract',
+            'Magang'    => 'contract',
+        ];
+        $employmentType = $statusMap[$requisition->status] ?? 'contract';
+
+        $createdRecords = [];
+
+        foreach ($request->input('candidates') as $c) {
+            $manpowerData = $pending->get($c['npk']);
+
+            $commonAttributes = [
+                'no_req'         => $requisition->no_req,
+                'npk'            => $manpowerData['npk'],
+                'name'           => $manpowerData['name'],
+                'gender'         => 'male',
+                'department_id'  => $departmentId,
+                'section_id'     => $sectionId,
+                'jabatan'        => $requisition->position,
+                'start_contract' => $manpowerData['start_contract'],
+                'end_contract'   => $manpowerData['end_contract'] ?? null,
+                'area_id'        => $c['area_id'],
+                'line_id'        => $c['line_id'] ?? null,
+                'station_id'     => $c['station_id'] ?? null,
+            ];
+
+            if ($requisition->apprenticeship_period) {
+                $createdRecords[] = Intern::create($commonAttributes);
+            } else {
+                $createdRecords[] = Employee::create(array_merge($commonAttributes, [
+                    'employment_type' => $employmentType,
+                    'status'          => 'active',
+                ]));
+            }
+        }
+
+        $requisition->update([
+            'area_line_filled_at' => now(),
+            'pending_candidates'  => null, // sudah selesai diproses, kosongkan
+            'approval_status'     => 'Manpower Assigned',
+        ]);
+
+        return $createdRecords;
+    });
+
+    return response()->json([
+        'success' => true,
+        'message' => "FPTK {$noReq} completed — " . count($created) . " manpower record(s) created.",
+        'data'    => $requisition->fresh(),
+    ]);
+}
     public function pendingApproval(Request $request): JsonResponse
     {
         $user = Auth::user();

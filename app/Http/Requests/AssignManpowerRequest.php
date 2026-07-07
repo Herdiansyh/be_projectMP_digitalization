@@ -5,43 +5,39 @@ namespace App\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
-use Illuminate\Support\Facades\Auth;
 
 class AssignManpowerRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        $user = Auth::user();
-
-        return $user && $user->roleLevel?->name === 'HR Admin';
+        return true; // sudah dicek roleLevel di controller
     }
 
     public function rules(): array
     {
         return [
-            'npk'            => 'required|string|max:255',
-            'name'           => 'required|string|max:255',
-            'start_contract' => 'required|date',
-            'end_contract'   => 'nullable|date|after_or_equal:start_contract',
+            'candidates'                        => ['required', 'array', 'min:1'],
+            'candidates.*.npk'                   => [
+                'required', 'string', 'max:255',
+                'distinct', // npk tidak boleh sama antar baris dalam satu submission
+                'unique:employees,npk',
+                'unique:interns,npk',
+            ],
+            'candidates.*.name'                  => ['required', 'string', 'max:255'],
+            'candidates.*.start_contract'        => ['required', 'date'],
+            'candidates.*.end_contract'          => ['nullable', 'date', 'after:candidates.*.start_contract'],
         ];
     }
 
     public function messages(): array
     {
         return [
-            'npk.required'  => 'Candidate NPK is required.',
-            'name.required' => 'Candidate name is required.',
-            'start_contract.required' => 'Contract start date is required.',
-            'end_contract.after_or_equal' => 'Contract end date must not be before the start date.',
+            'candidates.required'         => 'At least one candidate is required.',
+            'candidates.*.npk.required'   => 'NPK is required for every candidate.',
+            'candidates.*.npk.distinct'   => 'Each candidate in this submission must have a different NPK.',
+            'candidates.*.npk.unique'     => 'This NPK is already registered.',
+            'candidates.*.name.required'  => 'Name is required for every candidate.',
         ];
-    }
-
-    protected function failedAuthorization()
-    {
-        throw new HttpResponseException(response()->json([
-            'success' => false,
-            'message' => 'Only HR Admin can fill in manpower data.',
-        ], 403));
     }
 
     protected function failedValidation(Validator $validator)

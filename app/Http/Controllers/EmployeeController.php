@@ -64,7 +64,7 @@ $query = Employee::with(['department', 'section', 'area', 'line', 'station']);
     {
         try {
             $employee = Employee::create($request->validated());
-            $employee->load(['department', 'section']);
+            $employee->load(['department', 'section', 'area', 'line', 'station']);
 
             return $this->successResponse(
                 new EmployeeResource($employee),
