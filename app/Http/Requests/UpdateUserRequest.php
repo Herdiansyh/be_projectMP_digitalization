@@ -38,7 +38,8 @@ class UpdateUserRequest extends FormRequest
             'approver_manager_id'  => 'nullable|exists:users,id',
             'approver_division_id' => 'nullable|exists:users,id',
             'approver_director_id' => 'nullable|exists:users,id',
-        ];
+            'area_id' => 'nullable|exists:areas,id',
+            ];
     }
 
     /**

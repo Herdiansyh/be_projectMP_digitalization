@@ -28,6 +28,7 @@ class UserController extends Controller
         'approverManager',
         'approverDivision',
         'approverDirector',
+        'area',
     ];
 
     /**
@@ -40,6 +41,7 @@ class UserController extends Controller
         'approverManager',
         'approverDivision',
         'approverDirector',
+        'area',
     ];
 
     /**
@@ -140,6 +142,7 @@ class UserController extends Controller
                 'approver_manager_id'  => $request->approver_manager_id,
                 'approver_division_id' => $request->approver_division_id,
                 'approver_director_id' => $request->approver_director_id,
+                'area_id'              => $request->area_id,
             ]);
 
             $user->load(self::FULL_RELATIONS);
@@ -203,6 +206,7 @@ class UserController extends Controller
                 'approver_manager_id',
                 'approver_division_id',
                 'approver_director_id',
+                'area_id',
             ]));
 
             $user->load(self::FULL_RELATIONS);

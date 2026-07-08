@@ -16,7 +16,7 @@ class AuthService
      */
   public function login(array $credentials): array
 {
-    $user = User::with(['roleLevel', 'department', 'section'])
+    $user = User::with(['roleLevel', 'department', 'section', 'area'])
         ->where('npk', $credentials['npk'])  // ← ganti dari email ke npk
         ->first();
 
@@ -49,7 +49,7 @@ class AuthService
      */
     public function me(): AuthUserResource
     {
-        $user = User::with(['roleLevel', 'department', 'section'])
+        $user = User::with(['roleLevel', 'department', 'section', 'area'])
             ->find(Auth::id());
 
         if (!$user) {
@@ -73,7 +73,7 @@ class AuthService
 
     $newToken = JWTAuth::refresh($oldToken);
 
-    $user = User::with(['roleLevel', 'department', 'section'])
+    $user = User::with(['roleLevel', 'department', 'section', 'area'])
         ->find($userId);
 
     if (!$user) {

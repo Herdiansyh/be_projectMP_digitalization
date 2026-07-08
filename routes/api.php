@@ -1,10 +1,14 @@
 <?php
 
+use App\Http\Controllers\CompetencyCheckpointController;
+use App\Http\Controllers\CompetencyMatrixController;
+use App\Http\Controllers\EmployeeAssessmentController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\FptkController;
 use App\Http\Controllers\ApprovalController;
 use App\Http\Controllers\AreaController;
+use App\Http\Controllers\CompetencyCategoryController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\InternController;
 use App\Http\Controllers\LineController;
@@ -94,5 +98,37 @@ Route::middleware('admin')->prefix('lines')->group(function () {
     Route::post('/', [LineController::class, 'store']);
     Route::put('/{line}', [LineController::class, 'update']);
     Route::delete('/{line}', [LineController::class, 'destroy']);
+});
+
+
+// ── Competency Matrix (Admin only untuk write; middleware auth:api tetap dipakai) ──
+Route::prefix('competency-matrices')->group(function () {
+    Route::get('/', [CompetencyMatrixController::class, 'index']);
+    Route::get('/{id}', [CompetencyMatrixController::class, 'show']);
+    Route::post('/', [CompetencyMatrixController::class, 'store']);
+    Route::put('/{id}', [CompetencyMatrixController::class, 'update']);
+    Route::delete('/{id}', [CompetencyMatrixController::class, 'destroy']);
+
+    // Nested — kategori & checkpoint selalu dalam konteks satu matrix
+    Route::post('/{matrixId}/categories', [CompetencyCategoryController::class, 'store']);
+});
+
+Route::prefix('competency-categories')->group(function () {
+    Route::put('/{id}', [CompetencyCategoryController::class, 'update']);
+    Route::delete('/{id}', [CompetencyCategoryController::class, 'destroy']);
+    Route::post('/{categoryId}/checkpoints', [CompetencyCheckpointController::class, 'store']);
+});
+
+Route::prefix('competency-checkpoints')->group(function () {
+    Route::put('/{id}', [CompetencyCheckpointController::class, 'update']);
+    Route::delete('/{id}', [CompetencyCheckpointController::class, 'destroy']);
+});
+
+// ── Employee Assessment (Leader/Supervisor submit penilaian) ──
+Route::prefix('assessments')->group(function () {
+    Route::get('/assessable', [EmployeeAssessmentController::class, 'assessableEmployees']);
+    Route::get('/matrix', [EmployeeAssessmentController::class, 'matrixForSubject']);
+    Route::post('/', [EmployeeAssessmentController::class, 'store']);
+    Route::get('/history', [EmployeeAssessmentController::class, 'history']);
 });
 });

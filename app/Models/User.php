@@ -33,6 +33,7 @@ class User extends Authenticatable implements JWTSubject
         'approver_manager_id',
         'approver_division_id',
         'approver_director_id',
+        'area_id',
     ];
 
     /**
@@ -63,6 +64,7 @@ class User extends Authenticatable implements JWTSubject
         'approver_manager_id'  => 'integer',
         'approver_division_id' => 'integer',
         'approver_director_id' => 'integer',
+        'area_id'              => 'integer',
     ];
 }
 
@@ -90,6 +92,10 @@ class User extends Authenticatable implements JWTSubject
         return $this->belongsTo(RoleLevel::class);
     }
 
+    public function area(): BelongsTo
+{
+    return $this->belongsTo(Area::class);
+}
     /**
      * Get the director that owns the user.
      */

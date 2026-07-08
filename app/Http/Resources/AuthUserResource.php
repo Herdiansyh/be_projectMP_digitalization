@@ -25,6 +25,11 @@ class AuthUserResource extends JsonResource
             'can_view_manpower'     => (bool) $this->can_view_manpower,
             'is_active'     => (bool) $this->is_active,
             'last_login_at' => $this->last_login_at,
+            'area_id' => $this->area_id,
+            'area' => $this->area ? [
+                'id'   => $this->area->id,
+                'name' => $this->area->name,
+            ] : null,
             'role' => [
                 'id'   => $this->roleLevel?->id,
                 'name' => $this->roleLevel?->name,

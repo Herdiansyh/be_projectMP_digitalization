@@ -28,6 +28,11 @@ class UserResource extends JsonResource
                 'id'   => $this->section->id,
                 'name' => $this->section->name,
             ]),
+            'area'         => $this->whenLoaded('area', fn() => $this->area ? [
+                'id'   => $this->area->id,
+                'name' => $this->area->name,
+            ] : null),
+            'area_id'      => $this->area_id,
             'role_level'   => $this->whenLoaded('roleLevel', fn() => [
                 'id'   => $this->roleLevel->id,
                 'name' => $this->roleLevel->name,

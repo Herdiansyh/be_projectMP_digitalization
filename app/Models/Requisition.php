@@ -55,7 +55,6 @@ class Requisition extends Model
         'replacement_employee_id',
         'apprenticeship_period',
 
-        // ── Tambahan: data assignment manpower ──
         'assigned_npk',
         'assigned_name',
         'assigned_start_contract',
@@ -95,7 +94,6 @@ class Requisition extends Model
         'assigned_end_contract'   => 'date',
         'hrd_assigned_at'         => 'datetime',
         'area_line_filled_at'     => 'datetime',
-            // ── Tambahan: FK integer casts untuk konsistensi di sqlsrv ──
         'replacement_employee_id' => 'integer',
         'employee_id'             => 'integer',
         'intern_id'                => 'integer',
@@ -138,10 +136,7 @@ public function station()
         return $query->where('supervisor', $supervisor);
     }
 
-    /**
-     * FPTK yang sudah diisi NPK/kontrak oleh HRD tapi requester
-     * belum melengkapi area/line. Dipakai untuk badge di FPTK List.
-     */
+
 public function scopeNeedsAreaLine($query)
 {
     return $query->whereNotNull('hrd_assigned_at')
@@ -187,11 +182,7 @@ public function scopeNeedsAreaLine($query)
         return strcasecmp((string) $this->department, 'Manufacturing') === 0;
     }
 
-    /**
-     * True jika HRD sudah submit NPK/kontrak tapi area/line belum diisi
-     * requester — dipakai FE untuk menampilkan badge + baris berwarna.
-     */
-   
+  
 public function getNeedsAreaLineAttribute(): bool
 {
     return !is_null($this->hrd_assigned_at)
