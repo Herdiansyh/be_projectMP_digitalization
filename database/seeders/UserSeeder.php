@@ -53,7 +53,7 @@ class UserSeeder extends Seeder
                 'password'      => Hash::make('123123123'),
                 'role_level_id' => $director->id,
             ],
-            //leader user
+            //--leader user--
             [
                 'npk'           => '07',
                 'username'      => 'leader1',
