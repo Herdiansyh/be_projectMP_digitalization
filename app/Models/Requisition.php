@@ -21,7 +21,7 @@ class Requisition extends Model
         // 'group',
         'department',
         'section',
-        // 'type',
+        'type',
         'position',
         'status',
         'duration',

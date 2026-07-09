@@ -17,7 +17,7 @@ class AuthService
   public function login(array $credentials): array
 {
     $user = User::with(['roleLevel', 'department', 'section', 'area'])
-        ->where('npk', $credentials['npk'])  // ← ganti dari email ke npk
+        ->where('npk', $credentials['npk'])  
         ->first();
 
     if (!$user) {

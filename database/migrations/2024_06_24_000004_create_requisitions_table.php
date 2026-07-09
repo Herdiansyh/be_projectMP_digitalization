@@ -36,6 +36,8 @@ return new class extends Migration
             $table->boolean('apprenticeship_period')->default(false);
             $table->text('manpower_plan')->nullable();
             $table->text('unplanned_reason')->nullable();
+            $table->string('type')->nullable();
+
 
             // ── Approval flow ──
             $table->string('approval_status')->default('Waiting for Manager Approval');
@@ -68,14 +70,9 @@ return new class extends Migration
             // (mendukung banyak kandidat per FPTK — lihat FptkController).
             $table->json('pending_candidates')->nullable();
 
-            // ── Area/line/station assignment oleh requester (step 5) ──
             $table->string('assigned_station')->nullable();
             $table->timestamp('area_line_filled_at')->nullable();
 
-            // Kolom lama, dipertahankan untuk kompatibilitas relasi
-            // assignedEmployee()/assignedIntern() — tidak lagi diisi
-            // di flow multi-kandidat (lihat Requisition::employees()/interns()
-            // yang menghubungkan lewat employees.no_req / interns.no_req).
             $table->unsignedBigInteger('employee_id')->nullable();
             $table->unsignedBigInteger('intern_id')->nullable();
 
