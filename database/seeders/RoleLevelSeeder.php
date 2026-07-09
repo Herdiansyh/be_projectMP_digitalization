@@ -20,6 +20,7 @@ class RoleLevelSeeder extends Seeder
         ['name' => 'Section Head', 'is_system' => false],
         ['name' => 'Staff', 'is_system' => false],
         ['name' => 'HR Admin', 'is_system' => false],
+        ['name' => 'Leader', 'is_system' => false],
     ];
 
     RoleLevel::upsert(

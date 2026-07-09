@@ -25,8 +25,9 @@ class UpdateEmployeeRequest extends FormRequest
             'section_id'      => ['nullable', 'exists:sections,id'],
             'role_level'      => ['nullable', 'string', 'max:255'],
             'jabatan'         => ['nullable', 'string', 'max:255'],
-            'area'            => ['nullable', 'string', 'max:255'],
-            'station'         => ['nullable', 'string', 'max:255'],
+            'area_id'         => ['nullable', 'exists:areas,id'],
+            'line_id'         => ['nullable', 'exists:lines,id'],
+            'station_id'      => ['nullable', 'exists:stations,id'],
             'employment_type' => ['sometimes', 'in:permanent,contract,apprentice'],
             'start_contract'  => ['sometimes', 'date'],
             'end_contract'    => [
