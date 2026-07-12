@@ -62,32 +62,34 @@ class EmployeeAssessment extends Model
     }
 
   
-    public function getCategoryScoresAttribute(): array
-    {
-        $this->loadMissing('scores.checkpoint.category');
+   public function getCategoryScoresAttribute(): array
+{
+    $this->loadMissing('scores.checkpoint.category');
 
-        $grouped = $this->scores->groupBy(fn ($score) => $score->checkpoint->category_id);
+    $grouped = $this->scores->groupBy(fn ($score) => $score->checkpoint->category_id);
 
-        $result = [];
+    $result = [];
 
-        foreach ($grouped as $categoryId => $scoresInCategory) {
-            $category = $scoresInCategory->first()->checkpoint->category;
-            $totalPoint = $scoresInCategory->sum('point');
-            $checkpointCount = $scoresInCategory->count();
+    foreach ($grouped as $categoryId => $scoresInCategory) {
+        $category = $scoresInCategory->first()->checkpoint->category;
+        $totalPoint = $scoresInCategory->sum(
+            fn ($s) => $s->point * $s->checkpoint->weight
+        );
+        $checkpointCount = $scoresInCategory->count();
 
-            $result[] = [
-                'category_id' => $categoryId,
-                'category_name' => $category->name,
-                'total_point' => $totalPoint,
-                'checkpoint_count' => $checkpointCount,
-                'average' => $checkpointCount > 0
-                    ? round($totalPoint / $checkpointCount, 2)
-                    : 0,
-            ];
-        }
-
-        return $result;
+        $result[] = [
+            'category_id'      => $categoryId,
+            'category_name'    => $category->name,
+            'total_point'      => $totalPoint,
+            'checkpoint_count' => $checkpointCount,
+            'average'          => $checkpointCount > 0
+                ? round($totalPoint / $checkpointCount, 2)
+                : 0,
+        ];
     }
+
+    return $result;
+}
 
    
     public function getFinalScoreAttribute(): float

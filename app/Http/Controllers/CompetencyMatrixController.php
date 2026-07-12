@@ -73,40 +73,41 @@ class CompetencyMatrixController extends Controller
         ], 201);
     }
 
-    public function update(Request $request, int $id): JsonResponse
-    {
-        if (!$this->isAdmin()) {
-            return $this->forbidden();
-        }
-
-        $matrix = CompetencyMatrix::findOrFail($id);
-
-        $validator = Validator::make($request->all(), [
-            'name'      => 'sometimes|required|string|max:255',
-            'is_active' => 'sometimes|boolean',
-        ]);
-
-        if ($validator->fails()) {
-            return $this->validationFailed($validator);
-        }
-
-        DB::transaction(function () use ($matrix, $request) {
-          if ($request->boolean('is_active')) {
-                CompetencyMatrix::where('station_id', $matrix->station_id)
-                    ->where('id', '!=', $matrix->id)
-                    ->where('is_active', true)
-                    ->update(['is_active' => false]);
-            }
-
-            $matrix->update($request->only(['name', 'is_active']));
-        });
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Matrix updated.',
-            'data'    => $matrix->fresh(),
-        ]);
+  public function update(Request $request, int $id): JsonResponse
+{
+    if (!$this->isAdmin()) {
+        return $this->forbidden();
     }
+
+    $matrix = CompetencyMatrix::findOrFail($id);
+
+    $validator = Validator::make($request->all(), [
+        'name'       => 'sometimes|required|string|max:255',
+        'is_active'  => 'sometimes|boolean',
+        'station_id' => 'sometimes|required|exists:stations,id',
+    ]);
+
+    if ($validator->fails()) {
+        return $this->validationFailed($validator);
+    }
+
+    DB::transaction(function () use ($matrix, $request) {
+        if ($request->boolean('is_active')) {
+            CompetencyMatrix::where('station_id', $request->input('station_id', $matrix->station_id))
+                ->where('id', '!=', $matrix->id)
+                ->where('is_active', true)
+                ->update(['is_active' => false]);
+        }
+
+        $matrix->update($request->only(['name', 'is_active', 'station_id']));
+    });
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Matrix updated.',
+        'data'    => $matrix->fresh(),
+    ]);
+}
 
     public function destroy(int $id): JsonResponse
     {

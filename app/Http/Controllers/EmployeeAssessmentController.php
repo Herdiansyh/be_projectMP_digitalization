@@ -190,72 +190,49 @@ class EmployeeAssessmentController extends Controller
         ], 201);
     }
 
-    public function history(Request $request): JsonResponse
-    {
-        $subject = $this->resolveSubject($request->subject_type, $request->subject_id);
+  public function history(Request $request): JsonResponse
+{
+    $subject = $this->resolveSubject($request->subject_type, $request->subject_id);
 
-        if (!$subject) {
-            return response()->json(['success' => false, 'message' => 'Candidate not found.'], 404);
-        }
-
-        if (!$this->isWithinLeaderScope($subject)) {
-            return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
-        }
-
-        $fk = $request->subject_type === 'employee' ? 'employee_id' : 'intern_id';
-        $history = EmployeeAssessment::with(['matrix', 'assessor:id,name', 'scores.checkpoint.category'])
-            ->where($fk, $subject->id)
-            ->orderBy('assessed_at')
-            ->get();
-
-        return response()->json([
-            'success' => true,
-            'data' => $history->map(fn ($assessment) => $this->formatHistoryItem($assessment)),
-        ]);
+    if (!$subject) {
+        return response()->json(['success' => false, 'message' => 'Candidate not found.'], 404);
     }
 
-    private function formatHistoryItem(EmployeeAssessment $assessment): array
-    {
-        // Group scores by category, hitung total & average per kategori
-        $categoryScores = $assessment->scores
-            ->groupBy(fn ($score) => $score->checkpoint->category_id)
-            ->map(function ($scoresInCategory) {
-                $category = $scoresInCategory->first()->checkpoint->category;
-                $totalPoint = $scoresInCategory->sum(
-                    fn ($s) => $s->point * $s->checkpoint->weight
-                );
-                $checkpointCount = $scoresInCategory->count();
-
-                return [
-                    'category_id'      => $category->id,
-                    'category_name'    => $category->name,
-                    'total_point'      => $totalPoint,
-                    'checkpoint_count' => $checkpointCount,
-                    'average'          => $checkpointCount > 0
-                        ? round($totalPoint / $checkpointCount, 2)
-                        : 0,
-                ];
-            })
-            ->values();
-
-        // Skor akhir = rata-rata sederhana dari average tiap kategori
-        $finalScore = $categoryScores->count() > 0
-            ? round($categoryScores->avg('average'), 2)
-            : 0;
-
-        return [
-            'id'              => $assessment->id,
-            'period_label'    => $assessment->period_label,
-            'assessed_at'     => $assessment->assessed_at,
-            'notes'           => $assessment->notes,
-            'final_score'     => $finalScore,
-            'category_scores' => $categoryScores,
-            'assessor'        => [
-                'id'   => $assessment->assessor->id,
-                'name' => $assessment->assessor->name,
-            ],
-        ];
+    if (!$this->isWithinLeaderScope($subject)) {
+        return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
     }
+
+    $fk = $request->subject_type === 'employee' ? 'employee_id' : 'intern_id';
+    $history = EmployeeAssessment::with([
+            'matrix',
+            'assessor:id,name',
+            'scores.checkpoint.category', 
+        ])
+        ->where($fk, $subject->id)
+        ->orderBy('assessed_at')
+        ->get();
+
+    return response()->json([
+        'success' => true,
+        'data' => $history->map(fn ($assessment) => $this->formatHistoryItem($assessment)),
+    ]);
+}
+
+  private function formatHistoryItem(EmployeeAssessment $assessment): array
+{
+    return [
+        'id'              => $assessment->id,
+        'period_label'    => $assessment->period_label,
+        'assessed_at'     => $assessment->assessed_at,
+        'notes'           => $assessment->notes,
+        'final_score'     => $assessment->final_score,
+        'category_scores' => $assessment->category_scores,
+        'assessor'        => [
+            'id'   => $assessment->assessor->id,
+            'name' => $assessment->assessor->name,
+        ],
+    ];
+}
 
     private function resolveSubject(?string $type, ?int $id): Employee|Intern|null
     {
