@@ -20,7 +20,8 @@ class UserSeeder extends Seeder
         $staff           = RoleLevel::where('name', 'Staff')->first();
         $hradmin        = RoleLevel::where('name', 'HR Admin')->first();
         $leader          = RoleLevel::where('name', 'Leader')->first();
-        if (!$admin || !$director || !$divisionHead || !$Manager|| !$sectionHead || !$staff || !$hradmin || !$leader) {
+        $qc              = RoleLevel::where('name', 'Quality Control')->first();
+        if (!$admin || !$director || !$divisionHead || !$Manager|| !$sectionHead || !$staff || !$hradmin || !$leader || !$qc) {
             $this->command->error('RoleLevel not found. Run RoleLevelSeeder first.');
             return;
         }
@@ -81,12 +82,12 @@ class UserSeeder extends Seeder
                 'role_level_id' => $divisionHead->id,
             ],
             [
-                'npk'           => 'EMP0006',
-                'username'      => 'divhead3',
+                'npk'           => '08',
+                'username'      => 'Quality Control',
                 'name'          => 'Rizky Pratama',
-                'email'         => 'divhead3@gmail.com',
+                'email'         => 'QC@gmail.com',
                 'password'      => Hash::make('123123123'),
-                'role_level_id' => $divisionHead->id,
+                'role_level_id' => $qc->id,
             ],
 
             // ── Departement Head (Manager) ──

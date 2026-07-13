@@ -130,5 +130,10 @@ Route::prefix('assessments')->group(function () {
     Route::get('/matrix', [EmployeeAssessmentController::class, 'matrixForSubject']);
     Route::post('/', [EmployeeAssessmentController::class, 'store']);
     Route::get('/history', [EmployeeAssessmentController::class, 'history']);
+    Route::get('/my-submissions', [EmployeeAssessmentController::class, 'mySubmissions']);
+    Route::get('/my-reviews', [EmployeeAssessmentController::class, 'myReviews']); // ← baru
+    Route::get('/qc-queue', [EmployeeAssessmentController::class, 'qcQueue']);
+    Route::get('/{assessment}', [EmployeeAssessmentController::class, 'showDetail']);
+    Route::post('/{assessment}/qc', [EmployeeAssessmentController::class, 'qcStore']);
 });
 });
