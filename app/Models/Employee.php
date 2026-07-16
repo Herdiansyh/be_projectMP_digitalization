@@ -17,6 +17,7 @@ class Employee extends Model
         'role_level',
         'jabatan',
         'employment_type',
+        'join_date',
         'start_contract',
         'end_contract',
        'area_id',
@@ -26,6 +27,7 @@ class Employee extends Model
     ];
 
  protected $casts = [
+    'join_date' => 'date',
     'start_contract' => 'date',
     'end_contract'   => 'date',
     'department_id'  => 'integer',
@@ -76,5 +78,10 @@ public function line()
 public function requisition()
 {
     return $this->belongsTo(Requisition::class, 'no_req', 'no_req');
+}
+
+public function evaluations()
+{
+    return $this->hasMany(Evaluation::class);
 }
 }

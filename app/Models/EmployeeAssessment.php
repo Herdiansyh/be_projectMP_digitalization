@@ -17,8 +17,8 @@ class EmployeeAssessment extends Model
     'assessed_at',
     'notes',
     'status',
-    'qc_by',
-    'qc_at',
+    'qa_by',
+    'qa_at',
 ];
 
 protected $casts = [
@@ -26,9 +26,9 @@ protected $casts = [
     'intern_id'   => 'integer',
     'matrix_id'   => 'integer',
     'assessed_by' => 'integer',
-    'qc_by'       => 'integer',
+    'qa_by'       => 'integer',
     'assessed_at' => 'datetime',
-    'qc_at'       => 'datetime',
+    'qa_at'       => 'datetime',
 ];
 
 protected $appends = ['category_scores', 'final_score', 'leader_category_scores'];
@@ -95,7 +95,7 @@ protected $appends = ['category_scores', 'final_score', 'leader_category_scores'
 // }
 public function getCategoryScoresAttribute(): array
 {
-    return $this->computeCategoryScores('qc');
+    return $this->computeCategoryScores('qa');
 }
 
 public function getLeaderCategoryScoresAttribute(): array
@@ -135,7 +135,7 @@ private function computeCategoryScores(string $source): array
 
 public function getFinalScoreAttribute(): float
 {
-    $categoryScores = $this->category_scores; // ini sudah source=qc
+    $categoryScores = $this->category_scores; // ini sudah source=qa
 
     if (empty($categoryScores)) {
         return 0;
@@ -147,9 +147,9 @@ public function getFinalScoreAttribute(): float
 }
 
 
-    public function qcReviewer(): BelongsTo
+    public function qaReviewer(): BelongsTo
 {
-    return $this->belongsTo(User::class, 'qc_by');
+    return $this->belongsTo(User::class, 'qa_by');
 }
 
 

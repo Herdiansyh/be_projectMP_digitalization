@@ -27,6 +27,7 @@ class StoreEmployeeRequest extends FormRequest
             'line_id'         => ['nullable', 'exists:lines,id'],
             'station_id'      => ['nullable', 'exists:stations,id'],
             'employment_type' => ['required', 'in:permanent,contract,apprentice'],
+            'join_date'       => ['required', 'date', 'before_or_equal:start_contract'],
             'start_contract'  => ['required', 'date'],
             'end_contract'    => [
                 'nullable',
@@ -49,6 +50,10 @@ class StoreEmployeeRequest extends FormRequest
             'gender.in'                 => 'Gender must be male or female',
             'employment_type.required'  => 'Employee type is required',
             'employment_type.in'        => 'Employee type is invalid',
+
+            'join_date.required'        => 'Join date is required',
+            'join_date.date'            => 'Invalid date format',
+            'join_date.before_or_equal' => 'Join date cannot be after the contract start date',
 
             'start_contract.required'   => 'Contract start date is required',
             'start_contract.date'       => 'Invalid date format',

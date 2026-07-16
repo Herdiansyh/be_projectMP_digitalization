@@ -567,6 +567,7 @@ public function assignManpower(AssignManpowerRequest $request, string $noReq): J
                 'department_id'  => $departmentId,
                 'section_id'     => $sectionId,
                 'jabatan'        => $requisition->position,
+                'join_date'      => $manpowerData['join_date'],
                 'start_contract' => $manpowerData['start_contract'],
                 'end_contract'   => $manpowerData['end_contract'] ?? null,
                 'area_id'        => $c['area_id'],

@@ -25,6 +25,7 @@ class EmployeeResource extends JsonResource
         'station_id'       => $this->station_id,
 
         'employment_type'  => $this->employment_type,
+        'join_date'   => $this->join_date?->format('Y-m-d'),
         'start_contract'   => $this->start_contract?->format('Y-m-d'),
         'end_contract'     => $this->end_contract?->format('Y-m-d'),
         'is_near_expiry'   => $this->is_near_expiry,

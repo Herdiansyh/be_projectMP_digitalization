@@ -29,6 +29,7 @@ class UpdateEmployeeRequest extends FormRequest
             'line_id'         => ['nullable', 'exists:lines,id'],
             'station_id'      => ['nullable', 'exists:stations,id'],
             'employment_type' => ['sometimes', 'in:permanent,contract,apprentice'],
+            'join_date'       => ['sometimes', 'date', 'before_or_equal:start_contract'],
             'start_contract'  => ['sometimes', 'date'],
             'end_contract'    => [
                 'nullable',
@@ -43,12 +44,15 @@ class UpdateEmployeeRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'npk.unique'               => 'NPK is already registered',
-            'gender.in'                => 'Gender must be male or female',
-            'employment_type.in'       => 'Employee type is invalid',
+            'npk.unique'                => 'NPK is already registered',
+            'gender.in'                 => 'Gender must be male or female',
+            'employment_type.in'        => 'Employee type is invalid',
 
-            'end_contract.required_if' => 'Contract end date is required for contract/apprentice type',
-            'end_contract.after'       => 'Contract end date must be after the start date',
+            'join_date.date'            => 'Invalid date format',
+            'join_date.before_or_equal' => 'Join date cannot be after the contract start date',
+
+            'end_contract.required_if'  => 'Contract end date is required for contract/apprentice type',
+            'end_contract.after'        => 'Contract end date must be after the start date',
         ];
     }
 

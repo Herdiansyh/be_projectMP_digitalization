@@ -95,9 +95,9 @@ class EmployeeAssessmentController extends Controller
 
     $user = Auth::user();
 
-    // QC boleh akses semua area (dia butuh matrix ini untuk review, bukan submit baru).
+    // QA boleh akses semua area (dia butuh matrix ini untuk review, bukan submit baru).
     // Leader/Admin tetap pakai aturan scope yang sudah ada.
-    if (!$this->isQC($user) && !$this->isWithinLeaderScope($subject)) {
+    if (!$this->isQA($user) && !$this->isWithinLeaderScope($subject)) {
         return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
     }
 
@@ -175,7 +175,7 @@ class EmployeeAssessmentController extends Controller
         'period_label' => $request->period_label,
         'assessed_at'  => now(),
         'notes'        => $request->notes,
-        'status'       => 'pending_qc',
+        'status'       => 'pending_QA',
     ]);
 
     $rows = collect($request->scores)->map(fn ($s) => [
@@ -193,16 +193,16 @@ class EmployeeAssessmentController extends Controller
 
         return response()->json([
     'success' => true,
-    'message' => "Assessment for {$subject->name} saved and forwarded to QC.",
+    'message' => "Assessment for {$subject->name} saved and forwarded to QA.",
     'data'    => $assessment->fresh(['scores.checkpoint.category']),
 ], 201);
     }
 
-public function qcQueue(): JsonResponse
+public function qaQueue(): JsonResponse
 {
     $user = Auth::user();
 
-    if (!$this->isAdmin($user) && !$this->isQC($user)) {
+    if (!$this->isAdmin($user) && !$this->isQA($user)) {
         return response()->json([
             'success' => false,
             'message' => 'You are not authorized to review assessments.',
@@ -216,7 +216,7 @@ public function qcQueue(): JsonResponse
             'intern.station', 'intern.line', 'intern.area',
             'scores.checkpoint.category',
         ])
-        ->where('status', 'pending_qc')
+        ->where('status', 'pending_QA')
         ->orderBy('assessed_at')
         ->get();
 
@@ -239,11 +239,11 @@ public function qcQueue(): JsonResponse
     ]);
 }
 
-public function qcStore(Request $request, int $assessment): JsonResponse
+public function qaStore(Request $request, int $assessment): JsonResponse
 {
     $user = Auth::user();
 
-    if (!$this->isAdmin($user) && !$this->isQC($user)) {
+    if (!$this->isAdmin($user) && !$this->isQA($user)) {
         return response()->json([
             'success' => false,
             'message' => 'You are not authorized to review assessments.',
@@ -256,10 +256,10 @@ public function qcStore(Request $request, int $assessment): JsonResponse
         return response()->json(['success' => false, 'message' => 'Assessment not found.'], 404);
     }
 
-    if ($assessmentModel->status !== 'pending_qc') {
+    if ($assessmentModel->status !== 'pending_QA') {
         return response()->json([
             'success' => false,
-            'message' => 'This assessment has already been reviewed by QC.',
+            'message' => 'This assessment has already been reviewed by QA.',
         ], 422);
     }
 
@@ -297,21 +297,21 @@ public function qcStore(Request $request, int $assessment): JsonResponse
             'assessment_id' => $assessmentModel->id,
             'checkpoint_id' => $s['checkpoint_id'],
             'point'         => $s['point'],
-            'source'        => 'qc',
+            'source'        => 'qa',
         ])->all();
 
         AssessmentScore::insert($rows);
 
         $assessmentModel->update([
             'status' => 'approved',
-            'qc_by'  => Auth::id(),
-            'qc_at'  => now(),
+            'qa_by'  => Auth::id(),
+            'qa_at'  => now(),
         ]);
     });
 
     return response()->json([
         'success' => true,
-        'message' => 'QC review saved. This is now the final score.',
+        'message' => 'QA review saved. This is now the final score.',
         'data'    => $assessmentModel->fresh(['scores.checkpoint.category']),
     ], 201);
 }
@@ -357,9 +357,9 @@ public function history(Request $request): JsonResponse
             'id'   => $assessment->assessor->id,
             'name' => $assessment->assessor->name,
         ],
-        'qc_reviewer' => $assessment->qcReviewer ? [
-            'id'   => $assessment->qcReviewer->id,
-            'name' => $assessment->qcReviewer->name,
+        'qa_reviewer' => $assessment->QaReviewer ? [
+            'id'   => $assessment->QaReviewer->id,
+            'name' => $assessment->QaReviewer->name,
         ] : null,
     ];
 }
@@ -376,7 +376,7 @@ public function mySubmissions(): JsonResponse
 
     $assessments = EmployeeAssessment::with([
             'matrix',
-            'qcReviewer:id,name',
+            'QaReviewer:id,name',
             'employee.station', 'employee.line', 'employee.area',
             'intern.station', 'intern.line', 'intern.area',
         ])
@@ -394,11 +394,11 @@ public function mySubmissions(): JsonResponse
             'final_score'  => $a->final_score,
             'subject'      => $a->subject,
             'subject_type' => $a->employee_id ? 'employee' : 'intern',
-            'qc_reviewer'  => $a->qcReviewer ? [
-                'id'   => $a->qcReviewer->id,
-                'name' => $a->qcReviewer->name,
+            'qa_reviewer'  => $a->QaReviewer ? [
+                'id'   => $a->QaReviewer->id,
+                'name' => $a->QaReviewer->name,
             ] : null,
-            'qc_at' => $a->qc_at,
+            'qa_at' => $a->qa_at,
         ]),
     ]);
 }
@@ -409,7 +409,7 @@ public function showDetail(int $assessment): JsonResponse
     $assessmentModel = EmployeeAssessment::with([
             'matrix.categories.checkpoints',
             'assessor:id,name',
-            'qcReviewer:id,name',
+            'QaReviewer:id,name',
             'scores',
         ])
         ->find($assessment);
@@ -418,9 +418,9 @@ public function showDetail(int $assessment): JsonResponse
         return response()->json(['success' => false, 'message' => 'Assessment not found.'], 404);
     }
 
-    // Hanya boleh dilihat oleh: yang submit (Leader pemilik), Admin, atau QC
+    // Hanya boleh dilihat oleh: yang submit (Leader pemilik), Admin, atau QA
     $isOwner = $assessmentModel->assessed_by === $user->id;
-    if (!$isOwner && !$this->isAdmin($user) && !$this->isQC($user)) {
+    if (!$isOwner && !$this->isAdmin($user) && !$this->isQA($user)) {
         return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
     }
 
@@ -433,12 +433,12 @@ public function showDetail(int $assessment): JsonResponse
             'notes'           => $assessmentModel->notes,
             'status'          => $assessmentModel->status,
             'assessor'        => $assessmentModel->assessor,
-            'qc_reviewer'     => $assessmentModel->qcReviewer,
-            'qc_at'           => $assessmentModel->qc_at,
+            'qa_reviewer'     => $assessmentModel->QaReviewer,
+            'qa_at'           => $assessmentModel->qa_at,
             'matrix'          => $assessmentModel->matrix,
             'leader_scores'   => $assessmentModel->scores->where('source', 'leader')->pluck('point', 'checkpoint_id'),
-            'qc_scores'       => $assessmentModel->scores->where('source', 'qc')->pluck('point', 'checkpoint_id'),
-            'category_scores' => $assessmentModel->category_scores, // hasil qc (final)
+            'qa_scores'       => $assessmentModel->scores->where('source', 'qa')->pluck('point', 'checkpoint_id'),
+            'category_scores' => $assessmentModel->category_scores, // hasil QA (final)
             'final_score'     => $assessmentModel->final_score,
         ],
     ]);
@@ -448,7 +448,7 @@ public function myReviews(): JsonResponse
 {
     $user = Auth::user();
 
-    if (!$this->isAdmin($user) && !$this->isQC($user)) {
+    if (!$this->isAdmin($user) && !$this->isQA($user)) {
         return response()->json([
             'success' => false,
             'message' => 'You are not authorized to view this.',
@@ -461,8 +461,8 @@ public function myReviews(): JsonResponse
             'employee.station', 'employee.line', 'employee.area',
             'intern.station', 'intern.line', 'intern.area',
         ])
-        ->where('qc_by', $user->id)
-        ->orderByDesc('qc_at')
+        ->where('qa_by', $user->id)
+        ->orderByDesc('qa_at')
         ->get();
 
     return response()->json([
@@ -471,7 +471,7 @@ public function myReviews(): JsonResponse
             'id'           => $a->id,
             'period_label' => $a->period_label,
             'assessed_at'  => $a->assessed_at,
-            'qc_at'        => $a->qc_at,
+            'qa_at'        => $a->qa_at,
             'final_score'  => $a->final_score,
             'subject'      => $a->subject,
             'subject_type' => $a->employee_id ? 'employee' : 'intern',
@@ -508,9 +508,9 @@ public function myReviews(): JsonResponse
         return $user->roleLevel?->name === 'Leader';
     }
 
-    private function isQC($user): bool
+    private function isQA($user): bool
     {
-        return $user->roleLevel?->name === 'Quality Control';
+        return $user->roleLevel?->name === 'Quality Assurance';
     }
 
     /**

@@ -13,23 +13,30 @@ class StationController extends Controller
 {
     use ApiResponseTrait;
 
-    /**
-     * List semua station, dengan optional pencarian & pagination.
-     */
     public function index(Request $request): JsonResponse
     {
         try {
-            $query = Station::query();
+            $query = Station::with('line:id,name,area_id', 'line.area:id,name');
 
             if ($request->filled('search')) {
                 $query->where('name', 'like', '%' . $request->search . '%');
+            }
+
+            if ($request->filled('line_id')) {
+                $query->where('line_id', $request->line_id);
+            }
+
+            // Filter tambahan: bisa langsung filter by area lewat relasi line
+            if ($request->filled('area_id')) {
+                $query->whereHas('line', function ($q) use ($request) {
+                    $q->where('area_id', $request->area_id);
+                });
             }
 
             if ($request->boolean('paginate', false)) {
                 $perPage = min((int) $request->input('per_page', 15), 100);
                 $stations = $query->orderBy('name')->paginate($perPage);
             } else {
-                // Default: list penuh tanpa pagination — dipakai untuk dropdown.
                 $stations = $query->orderBy('name')->get();
             }
 
@@ -42,7 +49,15 @@ class StationController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255|unique:stations,name',
+            'line_id' => 'required|exists:lines,id',
+            'name'    => [
+                'required',
+                'string',
+                'max:255',
+                \Illuminate\Validation\Rule::unique('stations')->where(
+                    fn ($query) => $query->where('line_id', $request->line_id)
+                ),
+            ],
         ]);
 
         if ($validator->fails()) {
@@ -55,6 +70,7 @@ class StationController extends Controller
 
         try {
             $station = Station::create($validator->validated());
+            $station->load('line:id,name,area_id', 'line.area:id,name');
 
             return $this->successResponse($station, 'Station created successfully', 201);
         } catch (Exception $e) {
@@ -64,13 +80,23 @@ class StationController extends Controller
 
     public function show(Station $station): JsonResponse
     {
+        $station->load('line:id,name,area_id', 'line.area:id,name');
+
         return $this->successResponse($station, 'Station retrieved successfully');
     }
 
     public function update(Request $request, Station $station): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255|unique:stations,name,' . $station->id,
+            'line_id' => 'required|exists:lines,id',
+            'name'    => [
+                'required',
+                'string',
+                'max:255',
+                \Illuminate\Validation\Rule::unique('stations')
+                    ->where(fn ($query) => $query->where('line_id', $request->line_id))
+                    ->ignore($station->id),
+            ],
         ]);
 
         if ($validator->fails()) {
@@ -83,6 +109,7 @@ class StationController extends Controller
 
         try {
             $station->update($validator->validated());
+            $station->load('line:id,name,area_id', 'line.area:id,name');
 
             return $this->successResponse($station, 'Station updated successfully');
         } catch (Exception $e) {

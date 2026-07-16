@@ -13,15 +13,20 @@ return new class extends Migration
     {
         Schema::create('users', function (Blueprint $table) {
             $table->id();
+
             $table->string('npk')->unique();
             $table->string('name');
             $table->string('email')->unique();
-            $table->foreignId('department_id')->nullable()->constrained('departments')->onDelete('set null');
-            $table->foreignId('section_id')->nullable()->constrained('sections')->onDelete('set null');
-            $table->foreignId('role_level_id')->nullable()->constrained('role_levels')->onDelete('set null');
+
+            // Foreign Keys
+            $table->unsignedBigInteger('department_id')->nullable();
+            $table->unsignedBigInteger('section_id')->nullable();
+            $table->unsignedBigInteger('area_id')->nullable();
+            $table->unsignedBigInteger('role_level_id')->nullable();
+            $table->unsignedBigInteger('director_id')->nullable();
+
             $table->string('username')->unique();
             $table->string('photo')->nullable();
-            $table->foreignId('director_id')->nullable()->constrained('users')->onDelete('no action');
 
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
@@ -31,35 +36,93 @@ return new class extends Migration
             $table->boolean('can_view_manpower')->default(false);
             $table->timestamp('last_login_at')->nullable();
 
-            // ── Approval chain (manager/division/director approver) ──
+            // Approval Chain
             $table->unsignedBigInteger('approver_manager_id')->nullable();
+            $table->unsignedBigInteger('approver_section_head_id')->nullable();
             $table->unsignedBigInteger('approver_division_id')->nullable();
             $table->unsignedBigInteger('approver_director_id')->nullable();
 
             $table->timestamps();
 
-            // ── Indexes ──
+            /*
+            |--------------------------------------------------------------------------
+            | Indexes
+            |--------------------------------------------------------------------------
+            */
             $table->index('name');
             $table->index('email');
             $table->index('npk');
             $table->index('username');
+
             $table->index('department_id');
             $table->index('section_id');
+            $table->index('area_id');
             $table->index('role_level_id');
+            $table->index('director_id');
+
+            $table->index('approver_manager_id');
+            $table->index('approver_section_head_id');
+            $table->index('approver_division_id');
+            $table->index('approver_director_id');
+
             $table->index('is_admin');
 
-            // ── Foreign keys (approver chain) ──
+            /*
+            |--------------------------------------------------------------------------
+            | Foreign Keys
+            |--------------------------------------------------------------------------
+            */
+
+            $table->foreign('department_id')
+                ->references('id')
+                ->on('departments')
+                ->onDelete('set null');
+
+            $table->foreign('section_id')
+                ->references('id')
+                ->on('sections')
+                ->onDelete('set null');
+
+            $table->foreign('area_id')
+                ->references('id')
+                ->on('areas')
+                ->onDelete('set null');
+
+            $table->foreign('role_level_id')
+                ->references('id')
+                ->on('role_levels')
+                ->onDelete('set null');
+
+            // Self Reference
+            $table->foreign('director_id')
+                ->references('id')
+                ->on('users')
+                ->onDelete('no action')
+                ->onUpdate('no action');
+
             $table->foreign('approver_manager_id')
-                ->references('id')->on('users')
-                ->onDelete('no action')->onUpdate('no action');
+                ->references('id')
+                ->on('users')
+                ->onDelete('no action')
+                ->onUpdate('no action');
+
+            $table->foreign('approver_section_head_id')
+                ->references('id')
+                ->on('users')
+                ->onDelete('no action')
+                ->onUpdate('no action');
 
             $table->foreign('approver_division_id')
-                ->references('id')->on('users')
-                ->onDelete('no action')->onUpdate('no action');
+                ->references('id')
+                ->on('users')
+                ->onDelete('no action')
+                ->onUpdate('no action');
 
             $table->foreign('approver_director_id')
-                ->references('id')->on('users')
-                ->onDelete('no action')->onUpdate('no action');
+                ->references('id')
+                ->on('users')
+                ->onDelete('no action')
+                ->onUpdate('no action');
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {

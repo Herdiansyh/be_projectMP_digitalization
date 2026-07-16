@@ -24,7 +24,8 @@ return new class extends Migration
 
             $table->string('jabatan')->nullable();
             $table->enum('employment_type', ['permanent', 'contract', 'apprentice']);
-
+            
+            $table->date('join_date')->nullable();
             $table->date('start_contract');
             $table->date('end_contract')->nullable();
 

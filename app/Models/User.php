@@ -31,6 +31,7 @@ class User extends Authenticatable implements JWTSubject
         'is_admin',
         'can_view_manpower',
         'approver_manager_id',
+        'approver_section_head_id',
         'approver_division_id',
         'approver_director_id',
         'area_id',
@@ -62,6 +63,7 @@ class User extends Authenticatable implements JWTSubject
         'role_level_id'        => 'integer',
         'director_id'          => 'integer',
         'approver_manager_id'  => 'integer',
+        'approver_section_head_id' => 'integer',
         'approver_division_id' => 'integer',
         'approver_director_id' => 'integer',
         'area_id'              => 'integer',
@@ -118,6 +120,14 @@ class User extends Authenticatable implements JWTSubject
     public function approverDivision(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approver_division_id');
+    }
+
+    /**
+     * Get the approver section head for the user.
+     */
+    public function approverSectionHead(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approver_section_head_id');
     }
 
     /**

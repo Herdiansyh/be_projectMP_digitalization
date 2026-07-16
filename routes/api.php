@@ -15,6 +15,8 @@ use App\Http\Controllers\LineController;
 use App\Http\Controllers\MasterDataController;
 use App\Http\Controllers\StationController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\EvaluationController;
+use App\Http\Controllers\EvaluationCriteriaController;
 
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
@@ -22,6 +24,8 @@ Route::prefix('auth')->group(function () {
     Route::get('/me', [AuthController::class, 'me'])->middleware('auth:api');
     Route::post('/refresh', [AuthController::class, 'refresh']);
 });
+
+
 
 Route::get('/master-data', [MasterDataController::class, 'index']);
 
@@ -124,6 +128,47 @@ Route::prefix('competency-checkpoints')->group(function () {
     Route::delete('/{id}', [CompetencyCheckpointController::class, 'destroy']);
 });
 
+Route::prefix('evaluations')->group(function () {
+    Route::get('/', [EvaluationController::class, 'index']);
+    Route::get('/criteria', [EvaluationCriteriaController::class, 'index']);
+    Route::post('/', [EvaluationController::class, 'store']);
+    Route::get('/pending-triggers', [EvaluationController::class, 'pendingTriggers']);
+    Route::get('/{evaluation}', [EvaluationController::class, 'show']);
+    Route::put('/{evaluation}', [EvaluationController::class, 'update']);
+    Route::delete('/{evaluation}', [EvaluationController::class, 'destroy']);
+    Route::post('/{evaluation}/scores', [EvaluationController::class, 'updateScores']);
+    Route::post('/{evaluation}/recommendation', [EvaluationController::class, 'updateRecommendation']);
+    Route::post('/{evaluation}/submit', [EvaluationController::class, 'submit']);
+    Route::post('/{evaluation}/approve', [EvaluationController::class, 'approve']);
+    Route::post('/{evaluation}/reject', [EvaluationController::class, 'reject']);
+});
+
+Route::middleware('admin')->prefix('evaluation-criteria')->group(function () {
+    // Bulk Save
+    Route::put('/bulk-save', [EvaluationCriteriaController::class, 'bulkSave']);
+
+    // Groups
+    Route::post('/groups', [EvaluationCriteriaController::class, 'storeGroup']);
+    Route::put('/groups/{id}', [EvaluationCriteriaController::class, 'updateGroup']);
+    Route::delete('/groups/{id}', [EvaluationCriteriaController::class, 'destroyGroup']);
+    Route::put('/groups/reorder', [EvaluationCriteriaController::class, 'reorderGroups']);
+
+    // Subgroups
+    Route::post('/groups/{groupId}/subgroups', [EvaluationCriteriaController::class, 'storeSubgroup']);
+    Route::put('/subgroups/{id}', [EvaluationCriteriaController::class, 'updateSubgroup']);
+    Route::delete('/subgroups/{id}', [EvaluationCriteriaController::class, 'destroySubgroup']);
+    Route::put('/groups/{groupId}/subgroups/reorder', [EvaluationCriteriaController::class, 'reorderSubgroups']);
+
+    // Criteria
+    Route::post('/groups/{groupId}/criteria', [EvaluationCriteriaController::class, 'storeCriteria']);
+    Route::put('/criteria/{id}', [EvaluationCriteriaController::class, 'updateCriteria']);
+    Route::delete('/criteria/{id}', [EvaluationCriteriaController::class, 'destroyCriteria']);
+    Route::put('/groups/{groupId}/criteria/reorder', [EvaluationCriteriaController::class, 'reorderCriteria']);
+
+    // Scale Options
+    Route::put('/criteria/{criteriaId}/scale-options', [EvaluationCriteriaController::class, 'updateScaleOptions']);
+});
+
 // ── Employee Assessment (Leader/Supervisor submit penilaian) ──
 Route::prefix('assessments')->group(function () {
     Route::get('/assessable', [EmployeeAssessmentController::class, 'assessableEmployees']);
@@ -132,8 +177,8 @@ Route::prefix('assessments')->group(function () {
     Route::get('/history', [EmployeeAssessmentController::class, 'history']);
     Route::get('/my-submissions', [EmployeeAssessmentController::class, 'mySubmissions']);
     Route::get('/my-reviews', [EmployeeAssessmentController::class, 'myReviews']); // ← baru
-    Route::get('/qc-queue', [EmployeeAssessmentController::class, 'qcQueue']);
+    Route::get('/qa-queue', [EmployeeAssessmentController::class, 'qaQueue']);
     Route::get('/{assessment}', [EmployeeAssessmentController::class, 'showDetail']);
-    Route::post('/{assessment}/qc', [EmployeeAssessmentController::class, 'qcStore']);
+    Route::post('/{assessment}/qa', [EmployeeAssessmentController::class, 'qaStore']);
 });
 });

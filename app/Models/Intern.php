@@ -16,6 +16,7 @@ class Intern extends Model
         'section_id',
         'role_level',
         'jabatan',
+        'join_date',
         'start_contract',
         'end_contract',
         'area_id',
@@ -25,6 +26,7 @@ class Intern extends Model
     ];
 
   protected $casts = [
+        'joint_date' => 'date',
         'start_contract' => 'date',
         'end_contract'   => 'date',
         'department_id'  => 'integer',

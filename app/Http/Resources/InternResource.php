@@ -18,6 +18,7 @@ class InternResource extends JsonResource
         'section_id'        => $this->section_id,
         'role_level'        => $this->role_level,
         'jabatan'           => $this->jabatan,
+        'join_date'    => $this->join_date?->format('Y-m-d'),
         'start_contract'    => $this->start_contract?->format('Y-m-d'),
         'end_contract'      => $this->end_contract?->format('Y-m-d'),
         'is_near_expiry'    => $this->is_near_expiry,

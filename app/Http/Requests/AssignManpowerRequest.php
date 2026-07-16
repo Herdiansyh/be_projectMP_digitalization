@@ -24,6 +24,7 @@ class AssignManpowerRequest extends FormRequest
                 'unique:interns,npk',
             ],
             'candidates.*.name'                  => ['required', 'string', 'max:255'],
+            'candidates.*.join_date'             => ['required', 'date'],
             'candidates.*.start_contract'        => ['required', 'date'],
             'candidates.*.end_contract'          => ['nullable', 'date', 'after:candidates.*.start_contract'],
         ];
@@ -32,11 +33,13 @@ class AssignManpowerRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'candidates.required'         => 'At least one candidate is required.',
-            'candidates.*.npk.required'   => 'NPK is required for every candidate.',
-            'candidates.*.npk.distinct'   => 'Each candidate in this submission must have a different NPK.',
-            'candidates.*.npk.unique'     => 'This NPK is already registered.',
-            'candidates.*.name.required'  => 'Name is required for every candidate.',
+            'candidates.required'            => 'At least one candidate is required.',
+            'candidates.*.npk.required'      => 'NPK is required for every candidate.',
+            'candidates.*.npk.distinct'      => 'Each candidate in this submission must have a different NPK.',
+            'candidates.*.npk.unique'        => 'This NPK is already registered.',
+            'candidates.*.name.required'     => 'Name is required for every candidate.',
+            'candidates.*.join_date.required'=> 'Join date is required for every candidate.',
+            'candidates.*.join_date.date'    => 'Invalid join date format.',
         ];
     }
 

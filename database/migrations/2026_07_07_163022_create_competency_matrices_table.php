@@ -7,11 +7,17 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     public function up(): void
-    {  Schema::create('competency_matrices', function (Blueprint $table) {
+    {
+        Schema::create('competency_matrices', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('station_id')->constrained('stations')->cascadeOnDelete();
-            $table->string('name'); 
+
+            $table->foreignId('station_id')
+                ->constrained('stations')
+                ->noActionOnDelete();
+
+            $table->string('name');
             $table->boolean('is_active')->default(true);
+
             $table->timestamps();
 
             $table->index('station_id');
@@ -20,24 +26,39 @@ return new class extends Migration
 
         Schema::create('competency_categories', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('matrix_id')->constrained('competency_matrices')->cascadeOnDelete();
+
+            $table->foreignId('matrix_id')
+                ->constrained('competency_matrices')
+                ->cascadeOnDelete();
+
             $table->string('name');
             $table->unsignedInteger('order')->default(0);
+
             $table->timestamps();
 
             $table->index('matrix_id');
         });
 
-        // ── Checkpoint/kriteria penilaian dalam satu kategori ──
         Schema::create('competency_checkpoints', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('category_id')->constrained('competency_categories')->cascadeOnDelete();
+
+            $table->foreignId('category_id')
+                ->constrained('competency_categories')
+                ->cascadeOnDelete();
+
             $table->text('description');
+
+            // tambahan dari migration kedua
+            $table->integer('sequence')->nullable();
+            $table->string('main_process')->nullable();
+
             $table->unsignedTinyInteger('weight')->default(1);
             $table->unsignedInteger('order')->default(0);
+
             $table->timestamps();
 
             $table->index('category_id');
+            $table->index('sequence');
         });
     }
 

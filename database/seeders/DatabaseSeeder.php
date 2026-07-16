@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             CompanySeeder::class,
             EmployeeStatusSeeder::class,
+            EvaluationCriteriaSeeder::class,
         ]);
     }
 }
