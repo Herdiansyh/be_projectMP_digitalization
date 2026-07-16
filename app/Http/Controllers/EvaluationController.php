@@ -240,42 +240,51 @@ class EvaluationController extends Controller
     }
 
     public function submit(Evaluation $evaluation): JsonResponse
-    {
-        try {
-            $user = Auth::user();
-            $roleName = $user->roleLevel?->name;
+{
+    try {
+        $user = Auth::user();
+        $roleName = $user->roleLevel?->name;
 
-            if ($roleName !== 'Leader' || $evaluation->leader_id !== $user->id) {
-                return $this->errorResponse('Unauthorized to submit evaluation', 403);
-            }
-
-            if ($evaluation->current_stage !== 'leader') {
-                return $this->errorResponse('Evaluation cannot be submitted from this stage', 422);
-            }
-
-            $evaluation->status = 'submitted_to_section_head';
-            $evaluation->current_stage = 'section_head';
-            $evaluation->save();
-
-            EvaluationApproval::create([
-                'evaluation_id' => $evaluation->id,
-                'role' => 'leader',
-                'user_id' => $user->id,
-                'action' => 'submit',
-                'notes' => null,
-                'acted_at' => now(),
-            ]);
-
-            $evaluation->load(['employee', 'scores.criteria', 'recommendation', 'approvals']);
-
-            return $this->successResponse(
-                new EvaluationResource($evaluation),
-                'Evaluation submitted to section head successfully'
-            );
-        } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+        if ($roleName !== 'Leader' || $evaluation->leader_id !== $user->id) {
+            return $this->errorResponse('Unauthorized to submit evaluation', 403);
         }
+
+        if ($evaluation->current_stage !== 'leader') {
+            return $this->errorResponse('Evaluation cannot be submitted from this stage', 422);
+        }
+
+        if (empty($evaluation->pkwt)) {
+            return $this->errorResponse('PKWT is required before submitting', 422);
+        }
+
+        $evaluation->load('recommendation');
+        if (!$evaluation->recommendation || empty($evaluation->recommendation->employee_status)) {
+            return $this->errorResponse('Recommendation is required before submitting', 422);
+        }
+
+        $evaluation->status = 'submitted_to_section_head';
+        $evaluation->current_stage = 'section_head';
+        $evaluation->save();
+
+        EvaluationApproval::create([
+            'evaluation_id' => $evaluation->id,
+            'role' => 'leader',
+            'user_id' => $user->id,
+            'action' => 'submit',
+            'notes' => null,
+            'acted_at' => now(),
+        ]);
+
+        $evaluation->load(['employee', 'scores.criteria', 'recommendation', 'approvals']);
+
+        return $this->successResponse(
+            new EvaluationResource($evaluation),
+            'Evaluation submitted to section head successfully'
+        );
+    } catch (Exception $e) {
+        return $this->errorResponse($e->getMessage(), 500);
     }
+}
 
     public function approve(Request $request, Evaluation $evaluation): JsonResponse
     {
