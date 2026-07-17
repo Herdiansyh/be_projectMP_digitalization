@@ -53,7 +53,13 @@ Route::middleware('auth:api')->group(function () {
         
     });
   Route::get('/users/{user}/approvers',      [UserController::class, 'getApproversForUser']);
-    
+
+    // Daftar user dengan role Section Head — dipakai untuk dropdown Approver
+    // Section Head di User Management, dan untuk routing approval Evaluation form.
+    // Didaftarkan sebelum /users/{user} agar "section-heads" tidak tertangkap
+    // sebagai route-model-binding parameter {user}.
+    Route::get('/users/section-heads', [UserController::class, 'listSectionHeads']);
+
     Route::middleware('admin')->prefix('users')->group(function () {
     Route::get('/',                      [UserController::class, 'index']);
     Route::post('/',                     [UserController::class, 'store']);

@@ -47,6 +47,11 @@ class UserResource extends JsonResource
                 'name' => $this->approverManager->name,
                 'npk'  => $this->approverManager->npk,
             ] : null),
+            'approver_section_head' => $this->whenLoaded('approverSectionHead', fn() => $this->approverSectionHead ? [
+                'id'   => $this->approverSectionHead->id,
+                'name' => $this->approverSectionHead->name,
+                'npk'  => $this->approverSectionHead->npk,
+            ] : null),
             'approver_division' => $this->whenLoaded('approverDivision', fn() => $this->approverDivision ? [
                 'id'   => $this->approverDivision->id,
                 'name' => $this->approverDivision->name,

@@ -34,6 +34,7 @@ class StoreUserRequest extends FormRequest
             'is_admin'       => 'boolean',
             'can_view_manpower'     => 'boolean',
             'approver_manager_id'  => 'nullable|exists:users,id',
+            'approver_section_head_id' => 'nullable|exists:users,id',
             'approver_division_id' => 'nullable|exists:users,id',
             'approver_director_id' => 'nullable|exists:users,id',
             'area_id' => 'nullable|exists:areas,id',
@@ -61,6 +62,7 @@ class StoreUserRequest extends FormRequest
             'section_id.exists'    => 'Section not found.',
             'role_level_id.exists' => 'Role level not found.',
             'director_id.exists'   => 'Director not found.',
+            'approver_section_head_id.exists' => 'Approver section head not found.',
         ];
     }
 

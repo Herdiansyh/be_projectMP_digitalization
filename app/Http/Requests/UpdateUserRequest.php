@@ -14,7 +14,7 @@ class UpdateUserRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true; // Authorization handled by AdminMiddleware
+        return true; // Authorization handled by AdminMiddleware / Policy di controller
     }
 
     /**
@@ -22,11 +22,11 @@ class UpdateUserRequest extends FormRequest
      */
     public function rules(): array
     {
-        $userId = $this->route('user'); // route model binding or ID
+        $userId = $this->route('user')?->id;
 
         return [
             'npk'            => ['sometimes', 'required', 'string', 'max:50', Rule::unique('users', 'npk')->ignore($userId)],
-            'name'           => 'sometimes|required|string|max:255',
+            'name'           => ['sometimes', 'required', 'string', 'max:255'],
             'username'       => ['sometimes', 'required', 'string', 'max:100', Rule::unique('users', 'username')->ignore($userId)],
             'email'          => ['sometimes', 'required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($userId)],
             'department_id'  => 'nullable|exists:departments,id',
@@ -36,10 +36,11 @@ class UpdateUserRequest extends FormRequest
             'is_admin'       => 'boolean',
             'can_view_manpower'     => 'boolean',
             'approver_manager_id'  => 'nullable|exists:users,id',
+            'approver_section_head_id' => 'nullable|exists:users,id',
             'approver_division_id' => 'nullable|exists:users,id',
             'approver_director_id' => 'nullable|exists:users,id',
             'area_id' => 'nullable|exists:areas,id',
-            ];
+        ];
     }
 
     /**
@@ -48,15 +49,19 @@ class UpdateUserRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'npk.required'         => 'NPK is required.',
             'npk.unique'           => 'NPK is already registered.',
             'name.required'        => 'Name is required.',
+            'username.required'    => 'Username is required.',
             'username.unique'      => 'Username is already taken.',
+            'email.required'       => 'Email is required.',
             'email.email'          => 'Invalid email format.',
             'email.unique'         => 'Email is already registered.',
             'department_id.exists' => 'Department not found.',
             'section_id.exists'    => 'Section not found.',
             'role_level_id.exists' => 'Role level not found.',
             'director_id.exists'   => 'Director not found.',
+            'approver_section_head_id.exists' => 'Approver section head not found.',
         ];
     }
 

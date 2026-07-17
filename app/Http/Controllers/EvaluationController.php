@@ -24,10 +24,25 @@ class EvaluationController extends Controller
 {
     use ApiResponseTrait;
 
+    /**
+     * Relasi standar yang selalu di-load untuk response EvaluationResource.
+     * `leader`, `sectionHead`, `manager` ditambahkan agar frontend bisa
+     * menampilkan nama approver tanpa lookup ID manual.
+     */
+    private const FULL_RELATIONS = [
+        'employee',
+        'scores.criteria',
+        'recommendation',
+        'approvals',
+        'leader',
+        'sectionHead',
+        'manager',
+    ];
+
     public function index(Request $request): JsonResponse
     {
         try {
-            $query = Evaluation::with(['employee', 'scores.criteria', 'recommendation', 'approvals']);
+            $query = Evaluation::with(self::FULL_RELATIONS);
 
             $user = Auth::user();
             $roleName = $user->roleLevel?->name;
@@ -67,7 +82,7 @@ class EvaluationController extends Controller
     {
         try {
             $user = Auth::user();
-            $user->load(['approverSectionHead', 'approverManager']);
+            $user->load(['approverSectionHead']);
 
             $evaluation = DB::transaction(function () use ($request, $user) {
                 return Evaluation::create([
@@ -76,7 +91,11 @@ class EvaluationController extends Controller
                     'department_head_id' => $request->department_head_id,
                     'leader_id' => $user->id,
                     'section_head_id' => $user->approverSectionHead?->id,
-                    'manager_id' => $user->approverManager?->id,
+                    // manager_id SENGAJA tidak diisi di sini. Manager yang akan
+                    // meninjau evaluasi ini baru ditentukan saat Section Head
+                    // approve — diambil dari approver_manager_id milik Section
+                    // Head yang bertindak, bukan dari Leader. Lihat method approve().
+                    'manager_id' => null,
                     'npk' => $request->npk,
                     'jabatan' => $request->jabatan,
                     'join_date' => $request->join_date,
@@ -88,7 +107,7 @@ class EvaluationController extends Controller
                 ]);
             });
 
-            $evaluation->load(['employee', 'scores.criteria', 'recommendation', 'approvals']);
+            $evaluation->load(self::FULL_RELATIONS);
 
             return $this->successResponse(
                 new EvaluationResource($evaluation),
@@ -118,7 +137,7 @@ class EvaluationController extends Controller
                 }
             }
 
-            $evaluation->load(['employee', 'scores.criteria', 'recommendation', 'approvals']);
+            $evaluation->load(self::FULL_RELATIONS);
 
             return $this->successResponse(
                 new EvaluationResource($evaluation),
@@ -154,7 +173,7 @@ class EvaluationController extends Controller
                 'reminder_note',
             ]));
 
-            $evaluation->load(['employee', 'scores.criteria', 'recommendation', 'approvals']);
+            $evaluation->load(self::FULL_RELATIONS);
 
             return $this->successResponse(
                 new EvaluationResource($evaluation),
@@ -202,7 +221,7 @@ class EvaluationController extends Controller
             );
         }
 
-        $evaluation->load(['employee', 'scores.criteria', 'recommendation', 'approvals']);
+        $evaluation->load(self::FULL_RELATIONS);
 
         return $this->successResponse(
             new EvaluationResource($evaluation),
@@ -228,7 +247,7 @@ class EvaluationController extends Controller
                 ]
             );
 
-            $evaluation->load(['employee', 'scores.criteria', 'recommendation', 'approvals']);
+            $evaluation->load(self::FULL_RELATIONS);
 
             return $this->successResponse(
                 new EvaluationResource($evaluation),
@@ -257,6 +276,10 @@ class EvaluationController extends Controller
             return $this->errorResponse('PKWT is required before submitting', 422);
         }
 
+        if (empty($evaluation->section_head_id)) {
+            return $this->errorResponse('You do not have an Approver Section Head assigned. Please contact Admin to set this up before submitting.', 422);
+        }
+
         $evaluation->load('recommendation');
         if (!$evaluation->recommendation || empty($evaluation->recommendation->employee_status)) {
             return $this->errorResponse('Recommendation is required before submitting', 422);
@@ -275,7 +298,7 @@ class EvaluationController extends Controller
             'acted_at' => now(),
         ]);
 
-        $evaluation->load(['employee', 'scores.criteria', 'recommendation', 'approvals']);
+        $evaluation->load(self::FULL_RELATIONS);
 
         return $this->successResponse(
             new EvaluationResource($evaluation),
@@ -303,6 +326,19 @@ class EvaluationController extends Controller
             }
 
             if ($evaluation->current_stage === 'section_head') {
+                // Manager tujuan forward DITENTUKAN DI SINI, saat Section Head
+                // approve — diambil dari approver_manager_id milik Section Head
+                // yang sedang bertindak (bukan dari Leader yang membuat evaluasi).
+                $user->loadMissing('approverManager');
+
+                if (!$user->approverManager) {
+                    return $this->errorResponse(
+                        'You do not have an Approver Manager assigned. Please contact Admin to set this up before approving.',
+                        422
+                    );
+                }
+
+                $evaluation->manager_id = $user->approverManager->id;
                 $evaluation->status = 'reviewed_by_section_head';
                 $evaluation->current_stage = 'manager';
             } elseif ($evaluation->current_stage === 'manager') {
@@ -320,7 +356,7 @@ class EvaluationController extends Controller
                 'acted_at' => now(),
             ]);
 
-            $evaluation->load(['employee', 'scores.criteria', 'recommendation', 'approvals']);
+            $evaluation->load(self::FULL_RELATIONS);
 
             return $this->successResponse(
                 new EvaluationResource($evaluation),
@@ -351,20 +387,22 @@ class EvaluationController extends Controller
                 return $this->errorResponse('Unauthorized to reject this evaluation', 403);
             }
 
+            $rejectedFromStage = $evaluation->current_stage;
+
             $evaluation->status = 'rejected';
             $evaluation->current_stage = 'leader';
             $evaluation->save();
 
             EvaluationApproval::create([
                 'evaluation_id' => $evaluation->id,
-                'role' => $evaluation->current_stage === 'leader' ? ($roleName === 'Manager' ? 'manager' : 'section_head') : $roleName,
+                'role' => $rejectedFromStage === 'manager' ? 'manager' : 'section_head',
                 'user_id' => $user->id,
                 'action' => 'reject',
                 'notes' => $request->input('notes'),
                 'acted_at' => now(),
             ]);
 
-            $evaluation->load(['employee', 'scores.criteria', 'recommendation', 'approvals']);
+            $evaluation->load(self::FULL_RELATIONS);
 
             return $this->successResponse(
                 new EvaluationResource($evaluation),

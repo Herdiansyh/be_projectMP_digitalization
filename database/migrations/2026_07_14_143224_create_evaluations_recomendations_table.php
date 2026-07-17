@@ -16,7 +16,7 @@ return new class extends Migration
                 ->constrained('evaluations')
                 ->cascadeOnDelete();
 
-            $table->string('employee_status', 20)->nullable(); // permanen | kontrak_berakhir
+            $table->string('employee_status', 20)->nullable(); 
             $table->boolean('extend_pkwt')->default(false);
             $table->string('pkwt_number', 10)->nullable();     // 1/2/3/4, aktif jika extend_pkwt true
             $table->integer('extend_months')->nullable();

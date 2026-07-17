@@ -57,6 +57,25 @@ class EvaluationResource extends JsonResource
                 'end_contract' => $this->employee->end_contract?->format('Y-m-d'),
                 'employment_type' => $this->employee->employment_type,
             ]),
+            // ── Approval chain actors (nama & npk) ──────────────────────────
+            // Ditampilkan sebagai object agar frontend tidak perlu lookup ID
+            // manual. `manager` bisa null sebelum Section Head approve, karena
+            // manager_id baru ditentukan dinamis saat itu (lihat approve()).
+            'leader' => $this->whenLoaded('leader', fn() => $this->leader ? [
+                'id' => $this->leader->id,
+                'name' => $this->leader->name,
+                'npk' => $this->leader->npk,
+            ] : null),
+            'section_head' => $this->whenLoaded('sectionHead', fn() => $this->sectionHead ? [
+                'id' => $this->sectionHead->id,
+                'name' => $this->sectionHead->name,
+                'npk' => $this->sectionHead->npk,
+            ] : null),
+            'manager' => $this->whenLoaded('manager', fn() => $this->manager ? [
+                'id' => $this->manager->id,
+                'name' => $this->manager->name,
+                'npk' => $this->manager->npk,
+            ] : null),
             'scores' => $this->whenLoaded('scores', fn() => $this->scores->map(function ($score) {
                 return [
                     'id' => $score->id,

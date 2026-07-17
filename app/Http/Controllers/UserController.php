@@ -26,6 +26,7 @@ class UserController extends Controller
         'roleLevel',
         'director',
         'approverManager',
+        'approverSectionHead',
         'approverDivision',
         'approverDirector',
         'area',
@@ -39,6 +40,7 @@ class UserController extends Controller
         'section',
         'roleLevel',
         'approverManager',
+        'approverSectionHead',
         'approverDivision',
         'approverDirector',
         'area',
@@ -49,6 +51,7 @@ class UserController extends Controller
      */
     private const APPROVER_RELATIONS = [
         'approverManager',
+        'approverSectionHead',
         'approverDivision',
         'approverDirector',
     ];
@@ -140,6 +143,7 @@ class UserController extends Controller
                 'is_admin'             => $request->boolean('is_admin', false),
                 'can_view_manpower'     => $request->boolean('can_view_manpower', false),
                 'approver_manager_id'  => $request->approver_manager_id,
+                'approver_section_head_id' => $request->approver_section_head_id,
                 'approver_division_id' => $request->approver_division_id,
                 'approver_director_id' => $request->approver_director_id,
                 'area_id'              => $request->area_id,
@@ -204,6 +208,7 @@ class UserController extends Controller
                 'is_admin',
                 'can_view_manpower',
                 'approver_manager_id',
+                'approver_section_head_id',
                 'approver_division_id',
                 'approver_director_id',
                 'area_id',
@@ -290,6 +295,9 @@ class UserController extends Controller
                 'approver_manager'  => $user->approverManager
                     ? new UserResource($user->approverManager)
                     : null,
+                'approver_section_head' => $user->approverSectionHead
+                    ? new UserResource($user->approverSectionHead)
+                    : null,
                 'approver_division' => $user->approverDivision
                     ? new UserResource($user->approverDivision)
                     : null,
@@ -297,6 +305,32 @@ class UserController extends Controller
                     ? new UserResource($user->approverDirector)
                     : null,
             ], 'User approvers retrieved successfully');
+        } catch (Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Section Heads (untuk dropdown Approver Section Head di User Management,
+    // dipakai juga untuk approval chain Evaluation form)
+    // -------------------------------------------------------------------------
+
+    /**
+     * List all users with role level "Section Head", untuk dropdown approver.
+     */
+    public function listSectionHeads(): JsonResponse
+    {
+        try {
+            $sectionHeads = User::whereHas('roleLevel', function ($q) {
+                    $q->where('name', 'Section Head');
+                })
+                ->orderBy('name')
+                ->get(['id', 'name', 'npk', 'role_level_id']);
+
+            return $this->successResponse(
+                $sectionHeads,
+                'Section heads retrieved successfully'
+            );
         } catch (Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
         }
