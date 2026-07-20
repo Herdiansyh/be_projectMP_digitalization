@@ -24,9 +24,12 @@ class Employee extends Model
         'line_id',
         'station_id',
         'no_req',
-    ];
+        'is_active',
+        'deactivated_at',
+        'deactivated_reason',
+        ];
 
- protected $casts = [
+protected $casts = [
     'join_date' => 'date',
     'start_contract' => 'date',
     'end_contract'   => 'date',
@@ -35,6 +38,8 @@ class Employee extends Model
     'station_id'     => 'integer',
     'line_id'        => 'integer',
     'area_id'        => 'integer',
+    'is_active'      => 'boolean',
+    'deactivated_at' => 'datetime',
 ];
 
     public function department(): BelongsTo
@@ -54,6 +59,10 @@ class Employee extends Model
         return $daysLeft >= 0 && $daysLeft <= 30;
     }
 
+    public function contractExtensions()
+{
+    return $this->hasMany(EvaluationContractExtension::class);
+}
     public function getDaysUntilExpiryAttribute(): ?int
     {
         if (!$this->end_contract) return null;

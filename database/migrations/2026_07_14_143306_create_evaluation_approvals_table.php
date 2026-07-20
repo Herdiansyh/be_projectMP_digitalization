@@ -15,9 +15,9 @@ return new class extends Migration
                 ->constrained('evaluations')
                 ->cascadeOnDelete();
 
-            $table->string('role', 20);   // leader | section_head | manager
+            $table->string('role', 30);   // leader | section_head | manager | hr_admin
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
-            $table->string('action', 20); // submit | approve | reject | revise
+            $table->string('action', 40); // submit | approve | reject | revise | forward_to_hr_admin | extend_contract | close_contract_deactivate | close_contract_delete
             $table->text('notes')->nullable();
             $table->dateTime('acted_at')->useCurrent();
 
@@ -28,12 +28,12 @@ return new class extends Migration
             DB::statement("
                 ALTER TABLE evaluation_approvals
                 ADD CONSTRAINT chk_evaluation_approvals_role
-                CHECK (role IN ('leader','section_head','manager'))
+                CHECK (role IN ('leader','section_head','manager','hr_admin'))
             ");
             DB::statement("
                 ALTER TABLE evaluation_approvals
                 ADD CONSTRAINT chk_evaluation_approvals_action
-                CHECK (action IN ('submit','approve','reject','revise'))
+                CHECK (action IN ('submit','approve','reject','revise','forward_to_hr_admin','extend_contract','close_contract_deactivate','close_contract_delete'))
             ");
         }
     }

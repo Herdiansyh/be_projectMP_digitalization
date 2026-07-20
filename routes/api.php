@@ -139,6 +139,7 @@ Route::prefix('evaluations')->group(function () {
     Route::get('/criteria', [EvaluationCriteriaController::class, 'index']);
     Route::post('/', [EvaluationController::class, 'store']);
     Route::get('/pending-triggers', [EvaluationController::class, 'pendingTriggers']);
+    Route::get('/pending-hr-decisions', [EvaluationController::class, 'pendingHrDecisions']); // ← pindah ke sini
     Route::get('/{evaluation}', [EvaluationController::class, 'show']);
     Route::put('/{evaluation}', [EvaluationController::class, 'update']);
     Route::delete('/{evaluation}', [EvaluationController::class, 'destroy']);
@@ -147,8 +148,10 @@ Route::prefix('evaluations')->group(function () {
     Route::post('/{evaluation}/submit', [EvaluationController::class, 'submit']);
     Route::post('/{evaluation}/approve', [EvaluationController::class, 'approve']);
     Route::post('/{evaluation}/reject', [EvaluationController::class, 'reject']);
+    Route::post('/{evaluation}/forward-to-hr-admin', [EvaluationController::class, 'forwardToHrAdmin']); // ← ikut pindah, biar rapi
+    Route::post('/{evaluation}/extend-contract', [EvaluationController::class, 'extendContract']);
+    Route::post('/{evaluation}/close-contract', [EvaluationController::class, 'closeContract']);
 });
-
 Route::middleware('admin')->prefix('evaluation-criteria')->group(function () {
     // Bulk Save
     Route::put('/bulk-save', [EvaluationCriteriaController::class, 'bulkSave']);
@@ -187,4 +190,5 @@ Route::prefix('assessments')->group(function () {
     Route::get('/{assessment}', [EmployeeAssessmentController::class, 'showDetail']);
     Route::post('/{assessment}/qa', [EmployeeAssessmentController::class, 'qaStore']);
 });
+
 });

@@ -30,8 +30,10 @@ class EmployeeResource extends JsonResource
         'end_contract'     => $this->end_contract?->format('Y-m-d'),
         'is_near_expiry'   => $this->is_near_expiry,
         'days_until_expiry'=> $this->days_until_expiry,
-
-        // Relasi
+        'is_active'           => (bool) $this->is_active,
+        'deactivated_at'      => $this->deactivated_at?->format('Y-m-d H:i:s'),
+        'deactivated_reason'  => $this->deactivated_reason,
+                // Relasi
         'department' => $this->whenLoaded('department', fn() => [
             'id'   => $this->department->id,
             'name' => $this->department->name,

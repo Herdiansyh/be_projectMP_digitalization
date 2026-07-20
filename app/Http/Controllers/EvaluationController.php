@@ -473,4 +473,185 @@ class EvaluationController extends Controller
     }
 }
 
+public function forwardToHrAdmin(Request $request, Evaluation $evaluation): JsonResponse
+{
+    try {
+        $user = Auth::user();
+        $roleName = $user->roleLevel?->name;
+
+        if ($roleName !== 'Section Head' || $evaluation->section_head_id !== $user->id) {
+            return $this->errorResponse('Unauthorized to forward this evaluation', 403);
+        }
+
+        if ($evaluation->status !== 'approved' || $evaluation->current_stage !== 'done') {
+            return $this->errorResponse('Evaluation must be fully approved before forwarding to HR Admin', 422);
+        }
+
+        $evaluation->status = 'forwarded_to_hr_admin';
+        $evaluation->current_stage = 'hr_admin';
+        $evaluation->save();
+
+        EvaluationApproval::create([
+            'evaluation_id' => $evaluation->id,
+            'role' => 'section_head',
+            'user_id' => $user->id,
+            'action' => 'forward_to_hr_admin',
+            'notes' => $request->input('notes'),
+            'acted_at' => now(),
+        ]);
+
+        $evaluation->load(self::FULL_RELATIONS);
+
+        return $this->successResponse(
+            new EvaluationResource($evaluation),
+            'Evaluation forwarded to HR Admin successfully'
+        );
+    } catch (Exception $e) {
+        return $this->errorResponse($e->getMessage(), 500);
+    }
+}
+
+public function extendContract(Request $request, Evaluation $evaluation): JsonResponse
+{
+    try {
+        $user = Auth::user();
+        $roleName = $user->roleLevel?->name;
+
+        if (!in_array($roleName, ['Admin', 'HR Admin'])) {
+            return $this->errorResponse('Unauthorized', 403);
+        }
+
+        if ($evaluation->current_stage !== 'hr_admin') {
+            return $this->errorResponse('Evaluation is not pending HR Admin decision', 422);
+        }
+
+        $request->validate([
+            'new_end_contract' => 'required|date|after:today',
+            'pkwt_number' => 'nullable|string',
+            'extend_months' => 'nullable|integer|min:1',
+            'notes' => 'nullable|string',
+        ]);
+
+        $employee = Employee::find($evaluation->employee_id);
+
+        DB::transaction(function () use ($request, $evaluation, $employee, $user) {
+            $employee->contractExtensions()->create([
+                'evaluation_id' => $evaluation->id,
+                'previous_end_contract' => $employee->end_contract,
+                'new_end_contract' => $request->new_end_contract,
+                'pkwt_number' => $request->pkwt_number,
+                'extend_months' => $request->extend_months,
+                'notes' => $request->notes,
+                'extended_by' => $user->id,
+            ]);
+
+            $employee->update(['end_contract' => $request->new_end_contract]);
+
+            $evaluation->update([
+                'status' => 'completed_extended',
+                'current_stage' => 'completed',
+            ]);
+
+            EvaluationApproval::create([
+                'evaluation_id' => $evaluation->id,
+                'role' => 'hr_admin',
+                'user_id' => $user->id,
+                'action' => 'extend_contract',
+                'notes' => $request->notes,
+                'acted_at' => now(),
+            ]);
+        });
+
+        $evaluation->load(self::FULL_RELATIONS);
+
+        return $this->successResponse(new EvaluationResource($evaluation), 'Contract extended successfully');
+    } catch (Exception $e) {
+        return $this->errorResponse($e->getMessage(), 500);
+    }
+}
+
+public function closeContract(Request $request, Evaluation $evaluation): JsonResponse
+{
+    try {
+        $user = Auth::user();
+        $roleName = $user->roleLevel?->name;
+
+        if (!in_array($roleName, ['Admin', 'HR Admin'])) {
+            return $this->errorResponse('Unauthorized', 403);
+        }
+
+        if ($evaluation->current_stage !== 'hr_admin') {
+            return $this->errorResponse('Evaluation is not pending HR Admin decision', 422);
+        }
+
+        $request->validate([
+            'action' => 'required|in:deactivate,delete',
+            'reason' => 'nullable|string',
+        ]);
+
+        $employee = Employee::find($evaluation->employee_id);
+
+        DB::transaction(function () use ($request, $evaluation, $employee, $user) {
+            if ($request->action === 'deactivate') {
+                $employee->update([
+                    'is_active' => false,
+                    'deactivated_at' => now(),
+                    'deactivated_reason' => $request->reason ?? 'Contract ended, not extended',
+                ]);
+            } else {
+                $employee->delete();
+            }
+
+            $evaluation->update([
+                'status' => 'completed_not_extended',
+                'current_stage' => 'completed',
+            ]);
+
+            EvaluationApproval::create([
+                'evaluation_id' => $evaluation->id,
+                'role' => 'hr_admin',
+                'user_id' => $user->id,
+                'action' => 'close_contract_' . $request->action,
+                'notes' => $request->reason,
+                'acted_at' => now(),
+            ]);
+        });
+
+        $evaluation->load(self::FULL_RELATIONS);
+
+        return $this->successResponse(new EvaluationResource($evaluation), 'Contract closed successfully');
+    } catch (Exception $e) {
+        return $this->errorResponse($e->getMessage(), 500);
+    }
+}
+
+public function pendingHrDecisions(Request $request): JsonResponse
+{
+    try {
+        $user = Auth::user();
+        $roleName = $user->roleLevel?->name;
+
+        if (!in_array($roleName, ['Admin', 'HR Admin'])) {
+            return $this->errorResponse('Unauthorized', 403);
+        }
+
+        $query = Evaluation::with(self::FULL_RELATIONS)
+            ->where('current_stage', 'hr_admin')
+            ->where('status', 'forwarded_to_hr_admin');
+
+        if ($request->filled('employee_id')) {
+            $query->where('employee_id', $request->employee_id);
+        }
+
+        $evaluations = $query->orderBy('updated_at', 'desc')
+            ->paginate($request->input('per_page', 15));
+
+        return $this->successResponse(
+            EvaluationResource::collection($evaluations)->response()->getData(true),
+            'Pending HR Admin decisions retrieved successfully'
+        );
+    } catch (Exception $e) {
+        return $this->errorResponse($e->getMessage(), 500);
+    }
+}
 }

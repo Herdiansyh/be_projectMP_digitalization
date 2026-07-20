@@ -47,6 +47,9 @@ $query = Employee::with(['department', 'section', 'area', 'line', 'station']);
                   ->whereDate('end_contract', '>=', today())
                   ->whereDate('end_contract', '<=', today()->addDays(30));
         }
+        if ($request->has('is_active')) {
+            $query->where('is_active', $request->boolean('is_active'));
+        }
 
         $perPage = $request->input('per_page', 15);
         $employees = $query->orderBy('name')->paginate($perPage);
