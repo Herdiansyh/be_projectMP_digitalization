@@ -52,13 +52,12 @@ protected $casts = [
         return $this->belongsTo(Section::class);
     }
 
-    public function getIsNearExpiryAttribute(): bool
-    {
-        if (!$this->end_contract) return false;
-        $daysLeft = Carbon::today()->diffInDays($this->end_contract, false);
-        return $daysLeft >= 0 && $daysLeft <= 30;
-    }
-
+  public function getIsNearExpiryAttribute(): bool
+{
+    if (!$this->end_contract || !$this->is_active) return false;
+    $daysLeft = Carbon::today()->diffInDays($this->end_contract, false);
+    return $daysLeft >= 0 && $daysLeft <= 30;
+}
     public function contractExtensions()
 {
     return $this->hasMany(EvaluationContractExtension::class);

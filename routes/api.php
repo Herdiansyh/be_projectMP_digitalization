@@ -17,6 +17,7 @@ use App\Http\Controllers\StationController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\EvaluationController;
 use App\Http\Controllers\EvaluationCriteriaController;
+use App\Http\Controllers\RoleLevelController;
 
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
@@ -28,6 +29,7 @@ Route::prefix('auth')->group(function () {
 
 
 Route::get('/master-data', [MasterDataController::class, 'index']);
+Route::get('/role-levels', [RoleLevelController::class, 'index']); // ← baru, publik untuk dropdown login
 
 Route::middleware('auth:api')->group(function () {
     // FPTK Routes

@@ -116,7 +116,8 @@ public function review(Request $request, string $noReq): JsonResponse
      */
     public function showForReview(string $noReq): JsonResponse
     {
-        $requisition = Requisition::findOrFail($noReq);
+        $requisition = Requisition::with(['replacementEmployee:id,npk,name'])
+        ->findOrFail($noReq);
 
         return response()->json([
             'success' => true,

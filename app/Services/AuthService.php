@@ -14,10 +14,10 @@ class AuthService
     /**
      * Login user.
      */
-  public function login(array $credentials): array
+public function login(array $credentials): array
 {
     $user = User::with(['roleLevel', 'department', 'section', 'area'])
-        ->where('npk', $credentials['npk'])  
+        ->where('npk', $credentials['npk'])
         ->first();
 
     if (!$user) {
@@ -28,9 +28,19 @@ class AuthService
         throw new Exception('Invalid credentials');
     }
 
+    // Pastikan user ini memang terdaftar untuk role yang dipilih.
+    $hasRole = $user->roleLevels()->where('role_levels.id', $credentials['role_level_id'])->exists();
+
+    if (!$hasRole) {
+        throw new Exception('You are not registered for the selected role');
+    }
+
     $user->update([
-        'last_login_at' => now(),
+        'role_level_id'  => $credentials['role_level_id'],
+        'last_login_at'  => now(),
     ]);
+
+    $user->load('roleLevel'); // refresh relasi supaya sesuai role terbaru
 
     $token = JWTAuth::fromUser($user);
 
@@ -59,6 +69,7 @@ class AuthService
         return new AuthUserResource($user);
     }
 
+    
     /**
      * Refresh JWT token.
      */

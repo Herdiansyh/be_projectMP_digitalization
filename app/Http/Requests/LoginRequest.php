@@ -18,6 +18,8 @@ class LoginRequest extends FormRequest
         return [
             'npk'      => ['required', 'string', 'exists:users,npk'],
             'password' => ['required', 'string', 'min:8'],
+            'role_level_id' => ['required', 'integer', 'exists:role_levels,id'],
+
         ];
     }
 
@@ -30,6 +32,8 @@ class LoginRequest extends FormRequest
             'password.required' => 'Password is required',
             'password.string'   => 'Password must be text',
             'password.min'      => 'Password must be at least 8 characters',
+            'role_level_id.required' => 'Role is required',
+            'role_level_id.exists'   => 'Selected role is invalid',
         ];
     }
 

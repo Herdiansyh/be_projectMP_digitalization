@@ -16,7 +16,7 @@ class UpdateEvaluationRecommendationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'employee_status' => 'nullable|in:permanen,kontrak_berakhir',
+            'employee_status' => 'nullable|in:permanen,kontrak_berakhir, perpanjang_kontrak',
             'extend_pkwt' => 'nullable|boolean',
             'pkwt_number' => 'nullable|string|max:10',
             'extend_months' => 'nullable|integer|min:0',
