@@ -193,6 +193,7 @@ class EvaluationController extends Controller
             'Leader' => 'leader',
             'Section Head' => 'section_head',
             'Manager' => 'manager',
+            'Admin'=> 'leader',
             default => null,
         };
 
@@ -419,8 +420,12 @@ class EvaluationController extends Controller
             $user = Auth::user();
             $roleName = $user->roleLevel?->name;
 
-            // Only Leader who created it can delete it, and only if it's still in draft
-            if ($roleName !== 'Leader' || $evaluation->leader_id !== $user->id) {
+            $isAdmin = in_array($roleName, ['Admin']);
+            $isOwnerLeader = $roleName === 'Leader' && $evaluation->leader_id === $user->id;
+
+            // Admin bisa hapus evaluasi apapun (konsisten dengan policy action lain).
+            // Leader hanya bisa hapus draft yang dia sendiri buat.
+            if (!$isAdmin && !$isOwnerLeader) {
                 return $this->errorResponse('Unauthorized to delete this evaluation', 403);
             }
 

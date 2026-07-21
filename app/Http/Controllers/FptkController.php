@@ -90,44 +90,68 @@ class FptkController extends Controller
      * Store a newly created requisition in storage.
      */
     public function store(Request $request): JsonResponse
-    {
-        $validator = Validator::make($request->all(), [
-            'requester_name'          => 'required|string|max:255',
-            'request_date'            => 'required|date',
-            'group'                   => 'nullable|string|max:255',
-            'department'              => 'nullable|string|max:255',
-            'section'                 => 'nullable|string|max:255',
-            'type'                    => 'nullable|string|max:255',
-            'position'                => 'nullable|string|max:255',
-            'status'                  => 'nullable|string|max:255',
-            'duration'                => 'nullable|string|max:255',
-            'level'                   => 'nullable|string|max:255',
-            'cost_employee'           => 'nullable|string|max:255',
-            'fulfilment_time'         => 'nullable|string|max:255',
-            'education'               => 'nullable|string|max:255',
-            'max_age'                 => 'nullable|integer|min:18',
-            'min_experience'          => 'nullable|integer|min:0',
-            'technical_skill'         => 'nullable|array',
-            'soft_skill'              => 'nullable|array',
-            'description'             => 'nullable|string',
-            'cost_center'             => 'nullable|string|max:255',
-            'objective'               => 'nullable|string|max:255',
-            'reason'                  => 'nullable|string',
-            'employee_out'            => 'nullable|string|max:255',
-            'replacement_employee_id' => 'nullable|exists:employees,id',
-            'apprenticeship_period'   => 'nullable|boolean',
-            'manpower_plan'           => 'nullable|string',
-            'unplanned_reason'        => 'nullable|string',
-            'supervisor'              => 'nullable|string|max:255',
-        ]);
+  {
+    $validator = Validator::make($request->all(), [
+        'requester_name'          => 'required|string|max:255',
+        'request_date'            => 'required|date',
+        'group'                   => 'nullable|string|max:255',
+        'department'              => 'nullable|string|max:255',
+        'section'                 => 'nullable|string|max:255',
+        'type'                    => 'nullable|string|max:255',
+        'position'                => 'nullable|string|max:255',
+        'status'                  => 'nullable|string|max:255',
+        'duration'                => 'nullable|string|max:255',
+        'level'                   => 'nullable|string|max:255',
+        'cost_employee'           => 'nullable|string|max:255',
+        'fulfilment_time'         => 'nullable|string|max:255',
+        'education'               => 'nullable|string|max:255',
+        'max_age'                 => 'nullable|integer|min:18',
+        'min_experience'          => 'nullable|integer|min:0',
+        'technical_skill'         => 'nullable|array',
+        'soft_skill'              => 'nullable|array',
+        'description'             => 'nullable|string',
+        'cost_center'             => 'nullable|string|max:255',
+        'objective'               => 'nullable|string|max:255',
+        'reason'                  => 'nullable|string',
+        'employee_out'            => 'nullable|string|max:255',
+        'replacement_employee_id' => 'nullable|exists:employees,id',
+        'apprenticeship_period'   => 'nullable|boolean',
+        'manpower_plan'           => 'nullable|string',
+        'unplanned_reason'        => 'nullable|string',
+        'supervisor'              => 'nullable|string|max:255',
+    ]);
 
-        if ($validator->fails()) {
+    if ($validator->fails()) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Validation failed',
+            'errors'  => $validator->errors(),
+        ], 422);
+    }
+
+    // ── Guard anti-duplikasi FPTK replacement ──────────────────────────
+    // Satu employee hanya boleh punya SATU FPTK replacement yang masih
+    // aktif (belum Rejected). Kalau FPTK sebelumnya sudah Rejected,
+    // dianggap batal dan boleh dibuatkan FPTK replacement baru.
+    if ($request->filled('replacement_employee_id')) {
+        $existing = Requisition::where('replacement_employee_id', $request->replacement_employee_id)
+            ->where('approval_status', '!=', 'Rejected')
+            ->first();
+
+        if ($existing) {
+            $employee = Employee::find($request->replacement_employee_id);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Validation failed',
-                'errors'  => $validator->errors(),
+                'message' => "FPTK pengganti untuk {$employee?->name} (NPK {$employee?->npk}) sudah pernah dibuat: {$existing->no_req} (status: {$existing->approval_status}).",
+                'errors'  => [
+                    'replacement_employee_id' => [
+                        "Employee ini sudah memiliki FPTK replacement aktif ({$existing->no_req}).",
+                    ],
+                ],
             ], 422);
         }
+    }
 
         $requisition = DB::transaction(function () use ($request) {
             // ── Generate no_req ──────────────────────────────────────────

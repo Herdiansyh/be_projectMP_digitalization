@@ -5,7 +5,7 @@ namespace App\Models;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-
+use Illuminate\Database\Eloquent\Relations\HasOne;
 class Intern extends Model
 {
     protected $fillable = [
@@ -26,7 +26,7 @@ class Intern extends Model
     ];
 
   protected $casts = [
-        'joint_date' => 'date',
+        'join_date' => 'date',
         'start_contract' => 'date',
         'end_contract'   => 'date',
         'department_id'  => 'integer',
@@ -74,5 +74,10 @@ public function line()
 public function requisition()
 {
     return $this->belongsTo(Requisition::class, 'no_req', 'no_req');
+}
+
+public function latestAssessment(): HasOne
+{
+    return $this->hasOne(EmployeeAssessment::class, 'intern_id')->latestOfMany('assessed_at');
 }
 }

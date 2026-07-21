@@ -27,11 +27,11 @@ class EmployeeAssessmentController extends Controller
         }
 
         if ($this->isAdmin($user)) {
-            $employees = Employee::with(['station', 'line', 'area'])
+            $employees = Employee::with(['station', 'line', 'area', 'latestAssessment'])
                 ->get()
                 ->map(fn ($e) => $this->attachLatestAssessment($e, 'employee'));
 
-            $interns = Intern::with(['station', 'line', 'area'])
+            $interns = Intern::with(['station', 'line', 'area', 'latestAssessment'])
                 ->get()
                 ->map(fn ($i) => $this->attachLatestAssessment($i, 'intern'));
 
@@ -49,12 +49,12 @@ class EmployeeAssessmentController extends Controller
             ], 422);
         }
 
-        $employees = Employee::with(['station', 'line', 'area'])
+        $employees = Employee::with(['station', 'line', 'area', 'latestAssessment'])
             ->where('area_id', $user->area_id)
             ->get()
             ->map(fn ($e) => $this->attachLatestAssessment($e, 'employee'));
 
-        $interns = Intern::with(['station', 'line', 'area'])
+        $interns = Intern::with(['station', 'line', 'area', 'latestAssessment'])
             ->where('area_id', $user->area_id)
             ->get()
             ->map(fn ($i) => $this->attachLatestAssessment($i, 'intern'));
@@ -67,11 +67,7 @@ class EmployeeAssessmentController extends Controller
 
     private function attachLatestAssessment(Employee|Intern $subject, string $type)
     {
-        $fk = $type === 'employee' ? 'employee_id' : 'intern_id';
-
-        $latest = EmployeeAssessment::where($fk, $subject->id)
-            ->orderByDesc('assessed_at')
-            ->first();
+        $latest = $subject->latestAssessment;
 
         $subject->setAttribute('subject_type', $type);
         $subject->setAttribute('latest_assessment', $latest ? [

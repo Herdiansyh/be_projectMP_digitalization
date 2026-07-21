@@ -80,17 +80,20 @@ $query = Employee::with(['department', 'section', 'area', 'line', 'station']);
     }
 
     public function show(Employee $employee): JsonResponse
-    {
-        try {
-       $employee->load(['department', 'section', 'area', 'line', 'station']);
-            return $this->successResponse(
-                new EmployeeResource($employee),
-                'Employee retrieved successfully'
-            );
-        } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
-        }
+{
+    try {
+        $employee->load([
+            'department', 'section', 'area', 'line', 'station',
+            'replacementRequisition.employees',
+        ]);
+        return $this->successResponse(
+            new EmployeeResource($employee),
+            'Employee retrieved successfully'
+        );
+    } catch (Exception $e) {
+        return $this->errorResponse($e->getMessage(), 500);
     }
+}
 
     public function update(UpdateEmployeeRequest $request, Employee $employee): JsonResponse
     {

@@ -5,7 +5,7 @@ namespace App\Models;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-
+use Illuminate\Database\Eloquent\Relations\HasOne;
 class Employee extends Model
 {
     protected $fillable = [
@@ -58,6 +58,11 @@ protected $casts = [
     $daysLeft = Carbon::today()->diffInDays($this->end_contract, false);
     return $daysLeft >= 0 && $daysLeft <= 30;
 }
+
+public function replacementRequisition(): HasOne
+{
+    return $this->hasOne(Requisition::class, 'replacement_employee_id', 'id');
+}
     public function contractExtensions()
 {
     return $this->hasMany(EvaluationContractExtension::class);
@@ -91,5 +96,10 @@ public function requisition()
 public function evaluations()
 {
     return $this->hasMany(Evaluation::class);
+}
+
+public function latestAssessment(): HasOne
+{
+    return $this->hasOne(EmployeeAssessment::class, 'employee_id')->latestOfMany('assessed_at');
 }
 }

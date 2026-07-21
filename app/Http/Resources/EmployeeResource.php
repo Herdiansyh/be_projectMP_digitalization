@@ -54,7 +54,24 @@ class EmployeeResource extends JsonResource
             'id'   => $this->station->id,
             'name' => $this->station->name,
         ] : null),
+        'replaced_by' => $this->whenLoaded('replacementRequisition', function () {
+            $req = $this->replacementRequisition;
+            if (!$req) return null;
 
+            $newHires = $req->employees->map(fn($e) => [
+                'id'             => $e->id,
+                'npk'            => $e->npk,
+                'name'           => $e->name,
+                'start_contract' => $e->start_contract?->format('Y-m-d'),
+            ]);
+
+            if ($newHires->isEmpty()) return null; // FPTK ada tapi belum ada yang direkrut
+
+            return [
+                'no_req'    => $req->no_req,
+                'employees' => $newHires,
+            ];
+        }),
         'created_at' => $this->created_at?->format('Y-m-d H:i:s'),
         'updated_at' => $this->updated_at?->format('Y-m-d H:i:s'),
     ];
