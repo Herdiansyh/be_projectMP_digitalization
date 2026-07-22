@@ -125,42 +125,46 @@ class UserController extends Controller
     /**
      * Store a newly created user.
      */
-    public function store(StoreUserRequest $request): JsonResponse
-    {
-        $this->authorize('create', User::class);
+public function store(StoreUserRequest $request): JsonResponse
+{
+    $this->authorize('create', User::class);
 
-        try {
-            $user = User::create([
-                'npk'                  => $request->npk,
-                'name'                 => $request->name,
-                'username'             => $request->username,
-                'email'                => $request->email,
-                'password'             => Hash::make($request->password),
-                'department_id'        => $request->department_id,
-                'section_id'           => $request->section_id,
-                'role_level_id'        => $request->role_level_id,
-                'director_id'          => $request->director_id,
-                'is_admin'             => $request->boolean('is_admin', false),
-                'can_view_manpower'     => $request->boolean('can_view_manpower', false),
-                'approver_manager_id'  => $request->approver_manager_id,
-                'approver_section_head_id' => $request->approver_section_head_id,
-                'approver_division_id' => $request->approver_division_id,
-                'approver_director_id' => $request->approver_director_id,
-                'area_id'              => $request->area_id,
-            ]);
+    try {
+        $user = User::create([
+            'npk'                  => $request->npk,
+            'name'                 => $request->name,
+            'username'             => $request->username,
+            'email'                => $request->email,
+            'password'             => Hash::make($request->password),
+            'department_id'        => $request->department_id,
+            'section_id'           => $request->section_id,
+            'role_level_id'        => $request->role_level_id,
+            'director_id'          => $request->director_id,
+            'is_admin'             => $request->boolean('is_admin', false),
+            'can_view_manpower'    => $request->boolean('can_view_manpower', false),
+            'approver_manager_id'  => $request->approver_manager_id,
+            'approver_section_head_id' => $request->approver_section_head_id,
+            'approver_division_id' => $request->approver_division_id,
+            'approver_director_id' => $request->approver_director_id,
+            'area_id'              => $request->area_id,
+        ]);
 
-            $user->load(self::FULL_RELATIONS);
-
-            return $this->successResponse(
-                new UserResource($user),
-                'User berhasil dibuat.',
-                201
-            );
-        } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+        // Sync pivot agar user bisa login dengan role ini
+        if ($request->role_level_id) {
+            $user->roleLevels()->sync([$request->role_level_id]);
         }
-    }
 
+        $user->load(self::FULL_RELATIONS);
+
+        return $this->successResponse(
+            new UserResource($user),
+            'User berhasil dibuat.',
+            201
+        );
+    } catch (Exception $e) {
+        return $this->errorResponse($e->getMessage(), 500);
+    }
+}
     // -------------------------------------------------------------------------
     // Show
     // -------------------------------------------------------------------------
@@ -192,38 +196,33 @@ class UserController extends Controller
      * Update the specified user.
      */
     public function update(UpdateUserRequest $request, User $user): JsonResponse
-    {
-        $this->authorize('update', $user);
+{
+    $this->authorize('update', $user);
 
-        try {
-            $user->update($request->only([
-                'npk',
-                'name',
-                'username',
-                'email',
-                'department_id',
-                'section_id',
-                'role_level_id',
-                'director_id',
-                'is_admin',
-                'can_view_manpower',
-                'approver_manager_id',
-                'approver_section_head_id',
-                'approver_division_id',
-                'approver_director_id',
-                'area_id',
-            ]));
+    try {
+        $user->update($request->only([
+            'npk', 'name', 'username', 'email',
+            'department_id', 'section_id', 'role_level_id', 'director_id',
+            'is_admin', 'can_view_manpower',
+            'approver_manager_id', 'approver_section_head_id',
+            'approver_division_id', 'approver_director_id', 'area_id',
+        ]));
 
-            $user->load(self::FULL_RELATIONS);
-
-            return $this->successResponse(
-                new UserResource($user),
-                'User berhasil diperbarui.'
-            );
-        } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+        // Sync pivot kalau role_level_id ikut diubah
+        if ($request->filled('role_level_id')) {
+            $user->roleLevels()->sync([$request->role_level_id]);
         }
+
+        $user->load(self::FULL_RELATIONS);
+
+        return $this->successResponse(
+            new UserResource($user),
+            'User berhasil diperbarui.'
+        );
+    } catch (Exception $e) {
+        return $this->errorResponse($e->getMessage(), 500);
     }
+}
 
     // -------------------------------------------------------------------------
     // Destroy

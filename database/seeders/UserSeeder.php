@@ -186,9 +186,8 @@ class UserSeeder extends Seeder
                 'role_level_id' => $hradmin->id,
             ],
         ];
-
         foreach ($users as $userData) {
-            User::firstOrCreate(
+            $user = User::firstOrCreate(
                 ['email' => $userData['email']],
                 array_merge($userData, [
                     'department_id' => null,
@@ -196,9 +195,9 @@ class UserSeeder extends Seeder
                     'photo'         => null,
                     'director_id'   => null,
                     'is_admin'      => $userData['role_level_id'] === $admin->id,
-
                 ])
             );
+        $user->roleLevels()->sync([$userData['role_level_id']]);
         }
 
         $this->command->info('UserSeeder completed: ' . count($users) . ' users seeded.');
