@@ -16,45 +16,71 @@ class InternController extends Controller
     use ApiResponseTrait;
 
     public function index(Request $request): JsonResponse
-    {
-        try {
-            $query = Intern::with(['department', 'section', 'area', 'line', 'station']);
+{
+    try {
+        $query = Intern::with(['department', 'section', 'area', 'line', 'station']);
 
-            if ($request->filled('search')) {
-                $search = $request->search;
-                $query->where(function ($q) use ($search) {
-                    $q->where('npk', 'like', "%{$search}%")
-                      ->orWhere('name', 'like', "%{$search}%")
-                      ->orWhere('jabatan', 'like', "%{$search}%");
-                });
-            }
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('npk', 'like', "%{$search}%")
+                  ->orWhere('name', 'like', "%{$search}%")
+                  ->orWhere('jabatan', 'like', "%{$search}%");
+            });
+        }
 
-            if ($request->filled('department_id')) {
-                $query->where('department_id', $request->department_id);
-            }
+        if ($request->filled('department_id')) {
+            $query->where('department_id', $request->department_id);
+        }
 
-            if ($request->filled('section_id')) {
-                $query->where('section_id', $request->section_id);
-            }
+        if ($request->filled('section_id')) {
+            $query->where('section_id', $request->section_id);
+        }    if ($request->filled('area_id')) {
+            $query->where('area_id', $request->area_id);
+        }
 
-            if ($request->boolean('near_expiry')) {
-                $query->whereNotNull('end_contract')
-                      ->whereDate('end_contract', '>=', today())
-                      ->whereDate('end_contract', '<=', today()->addDays(30));
-            }
+        if ($request->filled('line_id')) {
+            $query->where('line_id', $request->line_id);
+        }
+        if ($request->filled('group')) {
+            $query->where('group', $request->group);
+        }
 
-            // Cap per_page supaya request tidak bisa minta ribuan baris sekaligus
-            $perPage = min((int) $request->input('per_page', 15), 100);
-            $interns = $query->orderBy('name')->paginate($perPage);
+        if ($request->filled('station_id')) {
+            $query->where('station_id', $request->station_id);
+        }
+
+        if ($request->boolean('near_expiry')) {
+            $query->whereNotNull('end_contract')
+                  ->whereDate('end_contract', '>=', today())
+                  ->whereDate('end_contract', '<=', today()->addDays(30));
+        }
+
+        $query->orderBy('name');
+
+        // Untuk keperluan print "semua sesuai filter" — bypass pagination,
+        // tetap pakai filter yang sama, tanpa batas 100.
+        if ($request->boolean('all')) {
+            $interns = $query->get();
 
             return $this->successResponse(
-                InternResource::collection($interns)->response()->getData(true),
-                'Interns retrieved successfully'
+                ['data' => InternResource::collection($interns)],
+                'All filtered interns retrieved successfully'
             );
-        } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
         }
+
+        // Cap per_page supaya request tidak bisa minta ribuan baris sekaligus
+        $perPage = min((int) $request->input('per_page', 15), 100);
+        $interns = $query->paginate($perPage);
+
+        return $this->successResponse(
+            InternResource::collection($interns)->response()->getData(true),
+            'Interns retrieved successfully'
+        );
+    } catch (Exception $e) {
+        return $this->errorResponse($e->getMessage(), 500);
     }
+}
 
    public function store(StoreInternRequest $request): JsonResponse
 {

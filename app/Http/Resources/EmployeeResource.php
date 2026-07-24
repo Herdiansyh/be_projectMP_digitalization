@@ -18,6 +18,7 @@ class EmployeeResource extends JsonResource
         'section_id'       => $this->section_id,
         'role_level'       => $this->role_level,
         'jabatan'          => $this->jabatan,
+        'group'            => $this->group,
 
         // kolom id baru
         'area_id'          => $this->area_id,

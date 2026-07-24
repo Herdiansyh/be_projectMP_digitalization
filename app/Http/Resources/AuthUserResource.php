@@ -42,7 +42,6 @@ class AuthUserResource extends JsonResource
                 'id'   => $this->section?->id,
                 'name' => $this->section?->name,
             ],
-            'permissions' => [],
-        ];
+            'permissions' => $this->permissionKeys(),        ];
     }
 }

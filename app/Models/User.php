@@ -46,7 +46,7 @@ class User extends Authenticatable implements JWTSubject
     protected $hidden = [
         'password',
     ];
-
+protected array $cachedPermissionKeys;
     /**
      * Get the attributes that should be cast.
      *
@@ -171,4 +171,36 @@ class User extends Authenticatable implements JWTSubject
 {
     return $this->belongsToMany(RoleLevel::class, 'user_role_levels');
 }
+
+public function hasPermission(string $key): bool
+{
+    // CATATAN: is_admin SENGAJA TIDAK bypass di sini. is_admin sekarang
+    // hanya mengatur akses ke menu Data Master (dicek langsung lewat
+    // middleware 'admin', bukan lewat hasPermission()). Untuk permission
+    // workflow (fptk.*, competency.*, evaluations.*), role Admin harus
+    // dicentang manual di Permission Matrix seperti role lain.
+
+    if (!$this->role_level_id) {
+        return false;
+    }
+
+    // Cache per-request supaya tidak query berulang untuk banyak pengecekan
+    if (!isset($this->cachedPermissionKeys)) {
+        $this->cachedPermissionKeys = $this->roleLevel
+            ?->permissions()
+            ->pluck('key')
+            ->toArray() ?? [];
+    }
+
+    return in_array($key, $this->cachedPermissionKeys, true);
+}
+
+    public function permissionKeys(): array
+    {
+        // CATATAN: is_admin SENGAJA TIDAK lagi mengembalikan semua permission
+        // di sini (dulu: admin otomatis dapat semua key). Sekarang permission
+        // workflow murni mengikuti centang role di Permission Matrix, terlepas
+        // dari status is_admin. is_admin hanya untuk gate menu Data Master.
+        return $this->roleLevel?->permissions()->pluck('key')->toArray() ?? [];
+    }
 }

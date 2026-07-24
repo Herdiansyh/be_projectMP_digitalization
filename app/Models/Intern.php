@@ -23,6 +23,7 @@ class Intern extends Model
         'line_id',
         'station_id',
         'no_req',
+        'group',
     ];
 
   protected $casts = [

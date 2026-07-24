@@ -21,6 +21,7 @@ class UpdateInternRequest extends FormRequest
             'npk'             => ['sometimes', 'string', "unique:interns,npk,{$internId}"],
             'name'            => ['sometimes', 'string', 'max:255'],
             'gender'          => ['sometimes', 'in:male,female'],
+            'group'           => ['required', 'in:A,B'],
             'department_id'   => ['nullable', 'exists:departments,id'],
             'section_id'      => ['nullable', 'exists:sections,id'],
             'role_level'      => ['nullable', 'string', 'max:255'],

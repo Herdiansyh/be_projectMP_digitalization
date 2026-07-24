@@ -19,6 +19,7 @@ class StoreEmployeeRequest extends FormRequest
             'npk'             => ['required', 'string', 'unique:employees,npk'],
             'name'            => ['required', 'string', 'max:255'],
             'gender'          => ['required', 'in:male,female'],
+            'group'          => ['required', 'in:A,B'],
             'department_id'   => ['nullable', 'exists:departments,id'],
             'section_id'      => ['nullable', 'exists:sections,id'],
             'role_level'      => ['nullable', 'string', 'max:255'],

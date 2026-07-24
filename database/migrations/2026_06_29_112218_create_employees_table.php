@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('npk')->unique();
             $table->string('name');
             $table->enum('gender', ['male', 'female']);
+            $table->string('group')->nullable();
             $table->foreignId('department_id')->nullable()->constrained('departments')->nullOnDelete();
             $table->foreignId('section_id')->nullable()->constrained('sections')->nullOnDelete();
 

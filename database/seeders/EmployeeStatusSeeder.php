@@ -15,9 +15,7 @@ class EmployeeStatusSeeder extends Seeder
         $statuses = [
             ['name' => 'PKWT', 'level_default' => 0],
             ['name' => 'PKWTT', 'level_default' => 0],
-            ['name' => 'Kontrak', 'level_default' => 0],
             ['name' => 'Harian Lepas', 'level_default' => 0],
-            ['name' => 'Tetap', 'level_default' => 0],
         ];
 
         foreach ($statuses as $status) {

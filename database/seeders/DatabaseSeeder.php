@@ -24,6 +24,8 @@ class DatabaseSeeder extends Seeder
             CompanySeeder::class,
             EmployeeStatusSeeder::class,
             EvaluationCriteriaSeeder::class,
+            PermissionSeeder::class,
+            RolePermissionSeeder::class,
         ]);
     }
 }

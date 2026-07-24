@@ -198,7 +198,7 @@ class UserSeeder extends Seeder
                 ])
             );
         $user->roleLevels()->sync([$userData['role_level_id']]);
-        }
+    }
 
         $this->command->info('UserSeeder completed: ' . count($users) . ' users seeded.');
     }

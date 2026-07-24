@@ -19,6 +19,7 @@ class StoreInternRequest extends FormRequest
             'npk'             => ['required', 'string', 'unique:interns,npk'],
             'name'            => ['required', 'string', 'max:255'],
             'gender'          => ['required', 'in:male,female'],
+            'group'           => ['required', 'in:A,B'],
             'department_id'   => ['nullable', 'exists:departments,id'],
             'section_id'      => ['nullable', 'exists:sections,id'],
             'role_level'      => ['nullable', 'string', 'max:255'],

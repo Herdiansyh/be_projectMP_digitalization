@@ -529,5 +529,102 @@ public function myReviews(): JsonResponse
         return $user->area_id !== null && $user->area_id === $subject->area_id;
     }
 
-    
+   public function monitoring(): JsonResponse
+{
+    $user = Auth::user();
+
+    if (!$this->isAdmin($user) && !$user->hasPermission('competency.monitor')) {
+        return response()->json([
+            'success' => false,
+            'message' => 'You are not authorized to view this.',
+        ], 403);
+    }
+
+    $employees = Employee::with([
+            'station', 'line', 'area',
+            'latestAssessment.assessor:id,name',
+            'latestAssessment.qaReviewer:id,name',
+        ])
+        ->get()
+        ->map(fn ($e) => $this->formatMonitoringItem($e, 'employee'));
+
+    $interns = Intern::with([
+            'station', 'line', 'area',
+            'latestAssessment.assessor:id,name',
+            'latestAssessment.qaReviewer:id,name',
+        ])
+        ->get()
+        ->map(fn ($i) => $this->formatMonitoringItem($i, 'intern'));
+
+    return response()->json([
+        'success' => true,
+        'data' => $employees->concat($interns)->values(),
+    ]);
+}
+
+private function formatMonitoringItem(Employee|Intern $subject, string $type): array
+{
+    $latest = $subject->latestAssessment;
+
+    $status = match (true) {
+        !$latest => 'not_assessed',
+        $latest->status === 'pending_QA' => 'pending_qa',
+        $latest->status === 'approved' => 'completed',
+        default => $latest->status,
+    };
+
+    return [
+        'subject_type' => $type,
+        'subject_id'   => $subject->id,
+        'npk'          => $subject->npk,
+        'name'         => $subject->name,
+        'station'      => $subject->station?->name,
+        'line'         => $subject->line?->name,
+        'area'         => $subject->area?->name,
+        'status'       => $status,
+        'period_label' => $latest?->period_label,
+        'assessed_at'  => $latest?->assessed_at,
+        'assessor'     => $latest?->assessor
+            ? ['id' => $latest->assessor->id, 'name' => $latest->assessor->name]
+            : null,
+        'qa_at'        => $latest?->qa_at,
+        'qa_reviewer'  => $latest?->qaReviewer
+            ? ['id' => $latest->qaReviewer->id, 'name' => $latest->qaReviewer->name]
+            : null,
+        'final_score'  => $latest?->status === 'approved' ? $latest->final_score : null,
+    ];
+}   
+public function stationSummary(Request $request): JsonResponse
+{
+    $subject = $this->resolveSubject($request->subject_type, $request->subject_id);
+
+    if (!$subject) {
+        return response()->json(['success' => false, 'message' => 'Candidate not found.'], 404);
+    }
+
+    $fk = $request->subject_type === 'employee' ? 'employee_id' : 'intern_id';
+
+    $assessments = EmployeeAssessment::with(['matrix.station','scores.checkpoint.category'])
+        ->where($fk, $subject->id)
+        ->where('status', 'approved')
+        ->orderByDesc('assessed_at')
+        ->get()
+        ->filter(fn ($a) => $a->matrix?->station); // jaga-jaga kalau matrix/station sudah dihapus
+
+    $summary = $assessments
+        ->groupBy(fn ($a) => $a->matrix->station_id)
+        ->map(function ($group) {
+            $latest = $group->first(); // sudah diurutkan desc, jadi first = paling baru per station
+            return [
+                'station_id'   => $latest->matrix->station_id,
+                'station_name' => $latest->matrix->station->name,
+                'final_score'  => $latest->final_score,
+                'period_label' => $latest->period_label,
+                'assessed_at'  => $latest->assessed_at,
+            ];
+        })
+        ->values();
+
+    return response()->json(['success' => true, 'data' => $summary]);
+}
 }

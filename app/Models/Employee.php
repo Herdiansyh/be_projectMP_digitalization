@@ -27,6 +27,7 @@ class Employee extends Model
         'is_active',
         'deactivated_at',
         'deactivated_reason',
+        'group',
         ];
 
 protected $casts = [
@@ -98,8 +99,8 @@ public function evaluations()
     return $this->hasMany(Evaluation::class);
 }
 
-public function latestAssessment(): HasOne
-{
-    return $this->hasOne(EmployeeAssessment::class, 'employee_id')->latestOfMany('assessed_at');
-}
-}
+    public function latestAssessment(): HasOne
+    {
+        return $this->hasOne(EmployeeAssessment::class, 'employee_id')->latestOfMany('assessed_at');
+    }
+    }

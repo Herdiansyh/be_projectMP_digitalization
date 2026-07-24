@@ -14,6 +14,7 @@ class InternResource extends JsonResource
         'npk'               => $this->npk,
         'name'              => $this->name,
         'gender'            => $this->gender,
+        'group'             => $this->group,
         'department_id'     => $this->department_id,
         'section_id'        => $this->section_id,
         'role_level'        => $this->role_level,

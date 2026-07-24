@@ -15,10 +15,11 @@ class EmployeeController extends Controller
 {
     use ApiResponseTrait;
 
-    public function index(Request $request): JsonResponse
+public function index(Request $request): JsonResponse
 {
     try {
-$query = Employee::with(['department', 'section', 'area', 'line', 'station']);
+        $query = Employee::with(['department', 'section', 'area', 'line', 'station']);
+
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
@@ -35,24 +36,49 @@ $query = Employee::with(['department', 'section', 'area', 'line', 'station']);
         if ($request->filled('section_id')) {
             $query->where('section_id', $request->section_id);
         }
+        if ($request->filled('area_id')) {
+            $query->where('area_id', $request->area_id);
+        }
 
+        if ($request->filled('line_id')) {
+            $query->where('line_id', $request->line_id);
+        }        
+        if ($request->filled('group')) {
+            $query->where('group', $request->group);
+        }
+
+        if ($request->filled('station_id')) {
+            $query->where('station_id', $request->station_id);
+        }
         if ($request->filled('employment_type')) {
             $query->where('employment_type', $request->employment_type);
         }
-
-        // Removed status filter: 'active' / 'nonactive' logic removed
 
         if ($request->boolean('near_expiry')) {
             $query->whereNotNull('end_contract')
                   ->whereDate('end_contract', '>=', today())
                   ->whereDate('end_contract', '<=', today()->addDays(30));
         }
+
         if ($request->has('is_active')) {
             $query->where('is_active', $request->boolean('is_active'));
         }
 
-        $perPage = $request->input('per_page', 15);
-        $employees = $query->orderBy('name')->paginate($perPage);
+        $query->orderBy('name');
+
+        // Untuk keperluan print "semua sesuai filter" — bypass pagination.
+        if ($request->boolean('all')) {
+            $employees = $query->get();
+
+            return $this->successResponse(
+                ['data' => EmployeeResource::collection($employees)],
+                'All filtered employees retrieved successfully'
+            );
+        }
+
+        // Samakan dengan InternController: cap per_page maksimal 100.
+        $perPage = min((int) $request->input('per_page', 15), 100);
+        $employees = $query->paginate($perPage);
 
         return $this->successResponse(
             EmployeeResource::collection($employees)->response()->getData(true),
