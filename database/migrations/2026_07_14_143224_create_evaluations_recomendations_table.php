@@ -31,7 +31,7 @@ return new class extends Migration
             DB::statement("
                 ALTER TABLE evaluation_recommendations
                 ADD CONSTRAINT chk_evaluation_recommendations_employee_status
-                CHECK (employee_status IS NULL OR employee_status IN ('permanen','kontrak_berakhir'))
+                CHECK (employee_status IS NULL OR employee_status IN ('permanen','kontrak_berakhir','perpanjang_kontrak'))
             ");
         }
     }

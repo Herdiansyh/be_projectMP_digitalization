@@ -79,45 +79,81 @@ class EvaluationController extends Controller
     }
 
     public function store(StoreEvaluationRequest $request): JsonResponse
-    {
-        try {
-            $user = Auth::user();
-            $user->load(['approverSectionHead']);
+{
+    try {
+        $user = Auth::user();
+        $user->load(['approverSectionHead']);
 
-            $evaluation = DB::transaction(function () use ($request, $user) {
-                return Evaluation::create([
-                    'employee_id' => $request->employee_id,
-                    'department_id' => $request->department_id,
-                    'department_head_id' => $request->department_head_id,
-                    'leader_id' => $user->id,
-                    'section_head_id' => $user->approverSectionHead?->id,
-                    // manager_id SENGAJA tidak diisi di sini. Manager yang akan
-                    // meninjau evaluasi ini baru ditentukan saat Section Head
-                    // approve — diambil dari approver_manager_id milik Section
-                    // Head yang bertindak, bukan dari Leader. Lihat method approve().
-                    'manager_id' => null,
-                    'npk' => $request->npk,
-                    'jabatan' => $request->jabatan,
-                    'join_date' => $request->join_date,
-                    'start_date' => $request->start_date,
-                    'end_date' => $request->end_date,
-                    'pkwt' => $request->pkwt,
-                    'status' => 'draft',
-                    'current_stage' => 'leader',
-                ]);
-            });
+        $evaluation = DB::transaction(function () use ($request, $user) {
+            $evaluation = Evaluation::create([
+                'employee_id' => $request->employee_id,
+                'department_id' => $request->department_id,
+                'department_head_id' => $request->department_head_id,
+                'leader_id' => $user->id,
+                'section_head_id' => $user->approverSectionHead?->id,
+                // manager_id SENGAJA tidak diisi di sini. Manager yang akan
+                // meninjau evaluasi ini baru ditentukan saat Section Head
+                // approve — diambil dari approver_manager_id milik Section
+                // Head yang bertindak, bukan dari Leader. Lihat method approve().
+                'manager_id' => null,
+                'npk' => $request->npk,
+                'jabatan' => $request->jabatan,
+                'join_date' => $request->join_date,
+                'start_date' => $request->start_date,
+                'end_date' => $request->end_date,
+                'pkwt' => $request->pkwt,
+                'status' => 'draft',
+                'current_stage' => 'leader',
+            ]);
 
-            $evaluation->load(self::FULL_RELATIONS);
+            // Scores dan recommendation ikut dalam transaction yang sama.
+            // Kalau salah satu gagal, exception akan otomatis rollback
+            // seluruh insert evaluation di atas juga -- jadi tidak ada lagi
+            // draft "nyangkut" tanpa scores/recommendation seperti sebelumnya.
+            if ($request->filled('scores')) {
+                foreach ($request->scores as $item) {
+                    EvaluationScore::updateOrCreate(
+                        [
+                            'evaluation_id' => $evaluation->id,
+                            'criteria_id' => $item['criteria_id'],
+                            'filled_by_role' => 'leader',
+                        ],
+                        [
+                            'score' => $item['score'],
+                            'filled_by_user_id' => $user->id,
+                        ]
+                    );
+                }
+            }
 
-            return $this->successResponse(
-                new EvaluationResource($evaluation),
-                'Evaluation created successfully',
-                201
-            );
-        } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
-        }
+            if ($request->filled('recommendation')) {
+                EvaluationRecommendation::updateOrCreate(
+                    ['evaluation_id' => $evaluation->id],
+                    [
+                        'employee_status' => $request->input('recommendation.employee_status'),
+                        'extend_pkwt' => $request->boolean('recommendation.extend_pkwt', false),
+                        'pkwt_number' => $request->input('recommendation.pkwt_number'),
+                        'extend_months' => $request->input('recommendation.extend_months'),
+                        'notes' => $request->input('recommendation.notes'),
+                        'created_by' => $user->id,
+                    ]
+                );
+            }
+
+            return $evaluation;
+        });
+
+        $evaluation->load(self::FULL_RELATIONS);
+
+        return $this->successResponse(
+            new EvaluationResource($evaluation),
+            'Evaluation created successfully',
+            201
+        );
+    } catch (Exception $e) {
+        return $this->errorResponse($e->getMessage(), 500);
     }
+}
 
     public function show(Evaluation $evaluation): JsonResponse
     {
