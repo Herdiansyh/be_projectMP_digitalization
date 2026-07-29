@@ -38,6 +38,13 @@ class StoreEmployeeRequest extends FormRequest
                 'required_if:employment_type,contract',
                 'required_if:employment_type,apprentice',
             ],
+            'is_active'            => ['nullable', 'boolean'],
+            'deactivated_reason'   => [
+                'nullable',
+                'string',
+                'max:255',
+                'required_if:is_active,false',
+            ],
         ];
     }
 
@@ -60,6 +67,8 @@ class StoreEmployeeRequest extends FormRequest
             'start_contract.date'       => 'Invalid date format',
             'end_contract.required_if'  => 'Contract end date is required for contract/apprentice type',
             'end_contract.after'        => 'Contract end date must be after the start date',
+
+            'deactivated_reason.required_if' => 'Deactivation reason is required when marking as non-active',
         ];
     }
 

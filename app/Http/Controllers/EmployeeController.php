@@ -63,8 +63,15 @@ public function index(Request $request): JsonResponse
         if ($request->has('is_active')) {
             $query->where('is_active', $request->boolean('is_active'));
         }
+        $sortBy = $request->input('sort_by', 'created_at');
+        $sortOrder = strtolower($request->input('sort_order', 'desc')) === 'asc' ? 'asc' : 'desc';
 
-        $query->orderBy('name');
+        $allowedSorts = ['created_at', 'updated_at', 'name', 'npk', 'end_contract', 'id'];
+        if (!in_array($sortBy, $allowedSorts, true)) {
+            $sortBy = 'created_at';
+        }
+
+        $query->orderBy($sortBy, $sortOrder);
 
         // Untuk keperluan print "semua sesuai filter" — bypass pagination.
         if ($request->boolean('all')) {
@@ -92,13 +99,46 @@ public function index(Request $request): JsonResponse
     public function store(StoreEmployeeRequest $request): JsonResponse
     {
         try {
-            $employee = Employee::create($request->validated());
+            $data = $request->validated();
+            $data['deactivated_at'] = ($data['is_active'] ?? true) === false
+                ? now()
+                : null;
+
+            $employee = Employee::create($data);
             $employee->load(['department', 'section', 'area', 'line', 'station']);
 
             return $this->successResponse(
                 new EmployeeResource($employee),
                 'Employee created successfully',
                 201
+            );
+        } catch (Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+  public function update(UpdateEmployeeRequest $request, Employee $employee): JsonResponse
+    {
+        try {
+            $data = $request->validated();
+
+            if (array_key_exists('is_active', $data)) {
+                if ($data['is_active'] === false && $employee->is_active !== false) {
+                    // baru saja dinonaktifkan → catat waktunya
+                    $data['deactivated_at'] = now();
+                } elseif ($data['is_active'] === true) {
+                    // diaktifkan kembali → reset
+                    $data['deactivated_at'] = null;
+                    $data['deactivated_reason'] = null;
+                }
+            }
+
+            $employee->update($data);
+            $employee->load(['department', 'section', 'area', 'line', 'station']);
+
+            return $this->successResponse(
+                new EmployeeResource($employee),
+                'Employee updated successfully'
             );
         } catch (Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
@@ -121,21 +161,7 @@ public function index(Request $request): JsonResponse
     }
 }
 
-    public function update(UpdateEmployeeRequest $request, Employee $employee): JsonResponse
-    {
-        try {
-            $employee->update($request->validated());
-            $employee->load(['department', 'section', 'area', 'line', 'station']);
-
-            return $this->successResponse(
-                new EmployeeResource($employee),
-                'Employee updated successfully'
-            );
-        } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
-        }
-    }
-
+   
     public function destroy(Employee $employee): JsonResponse
     {
         try {
@@ -148,12 +174,11 @@ public function index(Request $request): JsonResponse
     }
 
     // Di EmployeeController.php
-    public function activeList(): JsonResponse
+public function activeList(): JsonResponse
     {
         try {
-            // Previously returned only employees with status='active'.
-            // Status logic removed — return compact employee list for dropdowns.
             $employees = Employee::select('id', 'npk', 'name', 'jabatan', 'department_id')
+                ->where('is_active', true)
                 ->with('department:id,name')
                 ->orderBy('name')
                 ->get();

@@ -29,6 +29,15 @@ class InternResource extends JsonResource
         'line_id'    => $this->line_id,
         'station_id' => $this->station_id,
 
+        // === TAMBAHAN INTERN OUTCOME: sebelumnya field ini tidak
+        // di-serialize sama sekali, akibatnya frontend selalu menerima
+        // outcome_status = undefined dan salah menganggap semua Intern
+        // "sudah diproses" (abu-abu), walau di database masih 'active'.
+        'outcome_status'         => $this->outcome_status,
+        'converted_employee_id'  => $this->converted_employee_id,
+        'outcome_at'             => $this->outcome_at?->format('Y-m-d H:i:s'),
+        'outcome_note'           => $this->outcome_note,
+
         // Relasi
         'department' => $this->whenLoaded('department', fn() => [
             'id'   => $this->department->id,

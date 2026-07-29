@@ -16,7 +16,10 @@ class StoreEvaluationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'employee_id' => 'required|exists:employees,id',
+            // Exclusive: tepat salah satu employee_id ATAU intern_id yang terisi.
+            'employee_id' => 'required_without:intern_id|prohibits:intern_id|nullable|exists:employees,id',
+            'intern_id' => 'required_without:employee_id|prohibits:employee_id|nullable|exists:interns,id',
+
             'department_id' => 'nullable|exists:departments,id',
             'department_head_id' => 'nullable|exists:users,id',
             'section_head_id' => 'nullable|exists:users,id',
@@ -36,9 +39,11 @@ class StoreEvaluationRequest extends FormRequest
             'scores.*.criteria_id' => 'required_with:scores|integer|exists:evaluation_criteria,id',
             'scores.*.score' => 'required_with:scores|numeric',
 
-            // Recommendation (opsional saat create)
+            // Recommendation (opsional saat create).
+            // employee_status menerima value untuk Employee maupun Intern
+            // (kolom di-reuse, lihat migration chk_evaluation_recommendations_employee_status).
             'recommendation' => 'nullable|array',
-            'recommendation.employee_status' => 'nullable|in:permanen,kontrak_berakhir,perpanjang_kontrak',
+            'recommendation.employee_status' => 'nullable|in:permanen,kontrak_berakhir,perpanjang_kontrak,promoted,not_extended',
             'recommendation.extend_pkwt' => 'nullable|boolean',
             'recommendation.pkwt_number' => 'nullable|string|max:10',
             'recommendation.extend_months' => 'nullable|integer|min:0',

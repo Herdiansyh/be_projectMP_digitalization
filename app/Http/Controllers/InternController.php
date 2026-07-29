@@ -56,7 +56,16 @@ class InternController extends Controller
                   ->whereDate('end_contract', '<=', today()->addDays(30));
         }
 
-        $query->orderBy('name');
+       // Sorting dinamis. Default: data terbaru duluan (created_at desc).
+        $sortBy = $request->input('sort_by', 'created_at');
+        $sortOrder = strtolower($request->input('sort_order', 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        $allowedSorts = ['created_at', 'updated_at', 'name', 'npk', 'end_contract', 'id'];
+        if (!in_array($sortBy, $allowedSorts, true)) {
+            $sortBy = 'created_at';
+        }
+
+        $query->orderBy($sortBy, $sortOrder);
 
         // Untuk keperluan print "semua sesuai filter" — bypass pagination,
         // tetap pakai filter yang sama, tanpa batas 100.
@@ -142,10 +151,11 @@ class InternController extends Controller
      * List ringkas intern (untuk dropdown, dsb).
      * Dibatasi 200 baris — cukup untuk dropdown, mencegah query unbounded.
      */
-    public function activeList(): JsonResponse
+   public function activeList(): JsonResponse
     {
         try {
             $interns = Intern::select('id', 'npk', 'name', 'jabatan', 'department_id')
+                ->where('outcome_status', 'active')
                 ->with('department:id,name')
                 ->orderBy('name')
                 ->limit(200)

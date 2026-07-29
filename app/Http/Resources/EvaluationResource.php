@@ -26,6 +26,7 @@ class EvaluationResource extends JsonResource
         return [
             'id' => $this->id,
             'employee_id' => $this->employee_id,
+            'intern_id' => $this->intern_id, // === TAMBAHAN INTERN ===
             'department_id' => $this->department_id,
             'department_head_id' => $this->department_head_id,
             'leader_id' => $this->leader_id,
@@ -45,7 +46,7 @@ class EvaluationResource extends JsonResource
             'reminder_sent_at' => $this->reminder_sent_at?->format('Y-m-d H:i:s'),
             'is_locked_for_current_user' => $isLocked,
             'is_leader_fields_locked' => $this->isLeaderFieldsLocked(),
-            'employee' => $this->whenLoaded('employee', fn() => [
+            'employee' => $this->whenLoaded('employee', fn() => $this->employee ? [
                 'id' => $this->employee->id,
                 'npk' => $this->employee->npk,
                 'name' => $this->employee->name,
@@ -56,7 +57,20 @@ class EvaluationResource extends JsonResource
                 'start_contract' => $this->employee->start_contract?->format('Y-m-d'),
                 'end_contract' => $this->employee->end_contract?->format('Y-m-d'),
                 'employment_type' => $this->employee->employment_type,
-            ]),
+            ] : null),
+            // === TAMBAHAN INTERN ===
+            'intern' => $this->whenLoaded('intern', fn() => $this->intern ? [
+                'id' => $this->intern->id,
+                'npk' => $this->intern->npk,
+                'name' => $this->intern->name,
+                'jabatan' => $this->intern->jabatan,
+                'department_id' => $this->intern->department_id,
+                'section_id' => $this->intern->section_id,
+                'join_date' => $this->intern->join_date?->format('Y-m-d'),
+                'start_contract' => $this->intern->start_contract?->format('Y-m-d'),
+                'end_contract' => $this->intern->end_contract?->format('Y-m-d'),
+                'outcome_status' => $this->intern->outcome_status,
+            ] : null),
             // ── Approval chain actors (nama & npk) ──────────────────────────
             // Ditampilkan sebagai object agar frontend tidak perlu lookup ID
             // manual. `manager` bisa null sebelum Section Head approve, karena
@@ -93,14 +107,14 @@ class EvaluationResource extends JsonResource
                     ],
                 ];
             })),
-            'recommendation' => $this->whenLoaded('recommendation', fn() => [
+            'recommendation' => $this->whenLoaded('recommendation', fn() => $this->recommendation ? [
                 'employee_status' => $this->recommendation->employee_status,
                 'extend_pkwt' => (bool) $this->recommendation->extend_pkwt,
                 'pkwt_number' => $this->recommendation->pkwt_number,
                 'extend_months' => $this->recommendation->extend_months,
                 'notes' => $this->recommendation->notes,
                 'created_by' => $this->recommendation->created_by,
-            ]),
+            ] : null),
             'approvals' => $this->whenLoaded('approvals', fn() => $this->approvals->map(function ($approval) {
                 return [
                     'id' => $approval->id,
@@ -111,6 +125,17 @@ class EvaluationResource extends JsonResource
                     'acted_at' => $approval->acted_at?->format('Y-m-d H:i:s'),
                 ];
             })),
+            'contract_extensions' => $this->whenLoaded('contractExtensions', fn() => $this->contractExtensions->map(function ($ext) {
+            return [
+                'id' => $ext->id,
+                'previous_end_contract' => $ext->previous_end_contract,
+                'new_end_contract' => $ext->new_end_contract,
+                'extend_months' => $ext->extend_months,
+                'notes' => $ext->notes,
+                'extended_by' => $ext->extended_by,
+                'created_at' => $ext->created_at?->format('Y-m-d H:i:s'),
+            ];
+        })),
             'created_at' => $this->created_at?->format('Y-m-d H:i:s'),
             'updated_at' => $this->updated_at?->format('Y-m-d H:i:s'),
         ];

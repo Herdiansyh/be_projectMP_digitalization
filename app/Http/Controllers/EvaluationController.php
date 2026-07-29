@@ -9,10 +9,13 @@ use App\Http\Requests\UpdateEvaluationScoresRequest;
 use App\Http\Requests\UpdateEvaluationRecommendationRequest;
 use App\Http\Resources\EvaluationResource;
 use App\Models\Employee;
+use App\Models\Intern;
 use App\Models\Evaluation;
 use App\Models\EvaluationScore;
 use App\Models\EvaluationRecommendation;
-use App\Models\EvaluationApproval;
+use App\Services\Evaluation\EvaluationFlowService;
+use App\Services\Evaluation\EmployeeContractService;
+use App\Services\Evaluation\InternPromotionService;
 use App\Traits\ApiResponseTrait;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -24,13 +27,23 @@ class EvaluationController extends Controller
 {
     use ApiResponseTrait;
 
+    public function __construct(
+        private readonly EvaluationFlowService $flowService,
+        private readonly EmployeeContractService $employeeContractService,
+        private readonly InternPromotionService $internPromotionService,
+    ) {
+    }
+
     /**
      * Relasi standar yang selalu di-load untuk response EvaluationResource.
      * `leader`, `sectionHead`, `manager` ditambahkan agar frontend bisa
      * menampilkan nama approver tanpa lookup ID manual.
+     * `intern` ditambahkan agar Evaluation Intern bisa dibaca sama seperti
+     * `employee` tanpa query terpisah.
      */
     private const FULL_RELATIONS = [
         'employee',
+        'intern',
         'scores.criteria',
         'recommendation',
         'approvals',
@@ -38,6 +51,21 @@ class EvaluationController extends Controller
         'sectionHead',
         'manager',
     ];
+
+    /**
+     * Terapkan filter query param `type` (employee|intern) ke query Evaluation.
+     * Dipakai bersama oleh index(), pendingHrDecisions().
+     */
+    private function applyTypeFilter($query, Request $request): void
+    {
+        if ($request->filled('type')) {
+            if ($request->input('type') === 'employee') {
+                $query->whereNotNull('employee_id');
+            } elseif ($request->input('type') === 'intern') {
+                $query->whereNotNull('intern_id');
+            }
+        }
+    }
 
     public function index(Request $request): JsonResponse
     {
@@ -63,6 +91,12 @@ class EvaluationController extends Controller
                 $query->where('employee_id', $request->employee_id);
             }
 
+            if ($request->filled('intern_id')) {
+                $query->where('intern_id', $request->intern_id);
+            }
+
+            $this->applyTypeFilter($query, $request);
+
             if ($request->filled('status')) {
                 $query->where('status', $request->status);
             }
@@ -79,81 +113,77 @@ class EvaluationController extends Controller
     }
 
     public function store(StoreEvaluationRequest $request): JsonResponse
-{
-    try {
-        $user = Auth::user();
-        $user->load(['approverSectionHead']);
+    {
+        try {
+            $user = Auth::user();
+            $user->load(['approverSectionHead']);
 
-        $evaluation = DB::transaction(function () use ($request, $user) {
-            $evaluation = Evaluation::create([
-                'employee_id' => $request->employee_id,
-                'department_id' => $request->department_id,
-                'department_head_id' => $request->department_head_id,
-                'leader_id' => $user->id,
-                'section_head_id' => $user->approverSectionHead?->id,
-                // manager_id SENGAJA tidak diisi di sini. Manager yang akan
-                // meninjau evaluasi ini baru ditentukan saat Section Head
-                // approve — diambil dari approver_manager_id milik Section
-                // Head yang bertindak, bukan dari Leader. Lihat method approve().
-                'manager_id' => null,
-                'npk' => $request->npk,
-                'jabatan' => $request->jabatan,
-                'join_date' => $request->join_date,
-                'start_date' => $request->start_date,
-                'end_date' => $request->end_date,
-                'pkwt' => $request->pkwt,
-                'status' => 'draft',
-                'current_stage' => 'leader',
-            ]);
+            $evaluation = DB::transaction(function () use ($request, $user) {
+                $evaluation = Evaluation::create([
+                    'employee_id' => $request->employee_id,
+                    'intern_id' => $request->intern_id,
+                    'department_id' => $request->department_id,
+                    'department_head_id' => $request->department_head_id,
+                    'leader_id' => $user->id,
+                    'section_head_id' => $user->approverSectionHead?->id,
+                    // manager_id SENGAJA tidak diisi di sini — ditentukan saat
+                    // Section Head approve (lihat EvaluationFlowService::approve()).
+                    'manager_id' => null,
+                    'npk' => $request->npk,
+                    'jabatan' => $request->jabatan,
+                    'join_date' => $request->join_date,
+                    'start_date' => $request->start_date,
+                    'end_date' => $request->end_date,
+                    'pkwt' => $request->pkwt,
+                    'status' => 'draft',
+                    'current_stage' => 'leader',
+                ]);
 
-            // Scores dan recommendation ikut dalam transaction yang sama.
-            // Kalau salah satu gagal, exception akan otomatis rollback
-            // seluruh insert evaluation di atas juga -- jadi tidak ada lagi
-            // draft "nyangkut" tanpa scores/recommendation seperti sebelumnya.
-            if ($request->filled('scores')) {
-                foreach ($request->scores as $item) {
-                    EvaluationScore::updateOrCreate(
+                // Scores dan recommendation ikut dalam transaction yang sama.
+                if ($request->filled('scores')) {
+                    foreach ($request->scores as $item) {
+                        EvaluationScore::updateOrCreate(
+                            [
+                                'evaluation_id' => $evaluation->id,
+                                'criteria_id' => $item['criteria_id'],
+                                'filled_by_role' => 'leader',
+                            ],
+                            [
+                                'score' => $item['score'],
+                                'filled_by_user_id' => $user->id,
+                            ]
+                        );
+                    }
+                }
+
+                if ($request->filled('recommendation')) {
+                    EvaluationRecommendation::updateOrCreate(
+                        ['evaluation_id' => $evaluation->id],
                         [
-                            'evaluation_id' => $evaluation->id,
-                            'criteria_id' => $item['criteria_id'],
-                            'filled_by_role' => 'leader',
-                        ],
-                        [
-                            'score' => $item['score'],
-                            'filled_by_user_id' => $user->id,
+                            'employee_status' => $request->input('recommendation.employee_status'),
+                            'extend_pkwt' => $request->boolean('recommendation.extend_pkwt', false),
+                            'pkwt_number' => $request->input('recommendation.pkwt_number'),
+                            'extend_months' => $request->input('recommendation.extend_months'),
+                            'notes' => $request->input('recommendation.notes'),
+                            'created_by' => $user->id,
                         ]
                     );
                 }
-            }
 
-            if ($request->filled('recommendation')) {
-                EvaluationRecommendation::updateOrCreate(
-                    ['evaluation_id' => $evaluation->id],
-                    [
-                        'employee_status' => $request->input('recommendation.employee_status'),
-                        'extend_pkwt' => $request->boolean('recommendation.extend_pkwt', false),
-                        'pkwt_number' => $request->input('recommendation.pkwt_number'),
-                        'extend_months' => $request->input('recommendation.extend_months'),
-                        'notes' => $request->input('recommendation.notes'),
-                        'created_by' => $user->id,
-                    ]
-                );
-            }
+                return $evaluation;
+            });
 
-            return $evaluation;
-        });
+            $evaluation->load(self::FULL_RELATIONS);
 
-        $evaluation->load(self::FULL_RELATIONS);
-
-        return $this->successResponse(
-            new EvaluationResource($evaluation),
-            'Evaluation created successfully',
-            201
-        );
-    } catch (Exception $e) {
-        return $this->errorResponse($e->getMessage(), 500);
+            return $this->successResponse(
+                new EvaluationResource($evaluation),
+                'Evaluation created successfully',
+                201
+            );
+        } catch (Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
     }
-}
 
     public function show(Evaluation $evaluation): JsonResponse
     {
@@ -221,58 +251,58 @@ class EvaluationController extends Controller
     }
 
     public function updateScores(UpdateEvaluationScoresRequest $request, Evaluation $evaluation): JsonResponse
-{
-    try {
-        $user = Auth::user();
-        $roleName = $user->roleLevel?->name;
-        $filledByRole = match ($roleName) {
-            'Leader' => 'leader',
-            'Section Head' => 'section_head',
-            'Manager' => 'manager',
-            'Admin'=> 'leader',
-            default => null,
-        };
+    {
+        try {
+            $user = Auth::user();
+            $roleName = $user->roleLevel?->name;
+            $filledByRole = match ($roleName) {
+                'Leader' => 'leader',
+                'Section Head' => 'section_head',
+                'Manager' => 'manager',
+                'Admin' => 'leader',
+                default => null,
+            };
 
-        $allowedStage = match ($filledByRole) {
-            'leader' => $evaluation->leader_id === $user->id && $evaluation->current_stage === 'leader',
-            'section_head' => $evaluation->section_head_id === $user->id && $evaluation->current_stage === 'section_head',
-            'manager' => $evaluation->manager_id === $user->id && $evaluation->current_stage === 'manager',
-            default => false,
-        };
+            $allowedStage = match ($filledByRole) {
+                'leader' => $evaluation->leader_id === $user->id && $evaluation->current_stage === 'leader',
+                'section_head' => $evaluation->section_head_id === $user->id && $evaluation->current_stage === 'section_head',
+                'manager' => $evaluation->manager_id === $user->id && $evaluation->current_stage === 'manager',
+                default => false,
+            };
 
-        if (!$allowedStage) {
-            return $this->errorResponse('Evaluation is locked for score updates', 403);
-        }
+            if (!$allowedStage) {
+                return $this->errorResponse('Evaluation is locked for score updates', 403);
+            }
 
-        foreach ($request->scores as $item) {
-            EvaluationScore::updateOrCreate(
-                [
-                    'evaluation_id' => $evaluation->id,
-                    'criteria_id' => $item['criteria_id'],
-                    'filled_by_role' => $filledByRole,
-                ],
-                [
-                    'score' => $item['score'],
-                    'filled_by_user_id' => $user->id,
-                ]
+            foreach ($request->scores as $item) {
+                EvaluationScore::updateOrCreate(
+                    [
+                        'evaluation_id' => $evaluation->id,
+                        'criteria_id' => $item['criteria_id'],
+                        'filled_by_role' => $filledByRole,
+                    ],
+                    [
+                        'score' => $item['score'],
+                        'filled_by_user_id' => $user->id,
+                    ]
+                );
+            }
+
+            $evaluation->load(self::FULL_RELATIONS);
+
+            return $this->successResponse(
+                new EvaluationResource($evaluation),
+                'Evaluation scores updated successfully'
             );
+        } catch (Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
         }
-
-        $evaluation->load(self::FULL_RELATIONS);
-
-        return $this->successResponse(
-            new EvaluationResource($evaluation),
-            'Evaluation scores updated successfully'
-        );
-    } catch (Exception $e) {
-        return $this->errorResponse($e->getMessage(), 500);
     }
-}
 
     public function updateRecommendation(UpdateEvaluationRecommendationRequest $request, Evaluation $evaluation): JsonResponse
     {
         try {
-            $recommendation = EvaluationRecommendation::updateOrCreate(
+            EvaluationRecommendation::updateOrCreate(
                 ['evaluation_id' => $evaluation->id],
                 [
                     'employee_status' => $request->employee_status,
@@ -296,102 +326,27 @@ class EvaluationController extends Controller
     }
 
     public function submit(Evaluation $evaluation): JsonResponse
-{
-    try {
-        $user = Auth::user();
-        $roleName = $user->roleLevel?->name;
+    {
+        try {
+            $this->flowService->submit($evaluation, Auth::user());
 
-        if ($roleName !== 'Leader' || $evaluation->leader_id !== $user->id) {
-            return $this->errorResponse('Unauthorized to submit evaluation', 403);
+            $evaluation->load(self::FULL_RELATIONS);
+
+            return $this->successResponse(
+                new EvaluationResource($evaluation),
+                'Evaluation submitted to section head successfully'
+            );
+        } catch (\RuntimeException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
+        } catch (Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
         }
-
-        if ($evaluation->current_stage !== 'leader') {
-            return $this->errorResponse('Evaluation cannot be submitted from this stage', 422);
-        }
-
-        if (empty($evaluation->pkwt)) {
-            return $this->errorResponse('PKWT is required before submitting', 422);
-        }
-
-        if (empty($evaluation->section_head_id)) {
-            return $this->errorResponse('You do not have an Approver Section Head assigned. Please contact Admin to set this up before submitting.', 422);
-        }
-
-        $evaluation->load('recommendation');
-        if (!$evaluation->recommendation || empty($evaluation->recommendation->employee_status)) {
-            return $this->errorResponse('Recommendation is required before submitting', 422);
-        }
-
-        $evaluation->status = 'submitted_to_section_head';
-        $evaluation->current_stage = 'section_head';
-        $evaluation->save();
-
-        EvaluationApproval::create([
-            'evaluation_id' => $evaluation->id,
-            'role' => 'leader',
-            'user_id' => $user->id,
-            'action' => 'submit',
-            'notes' => null,
-            'acted_at' => now(),
-        ]);
-
-        $evaluation->load(self::FULL_RELATIONS);
-
-        return $this->successResponse(
-            new EvaluationResource($evaluation),
-            'Evaluation submitted to section head successfully'
-        );
-    } catch (Exception $e) {
-        return $this->errorResponse($e->getMessage(), 500);
     }
-}
 
     public function approve(Request $request, Evaluation $evaluation): JsonResponse
     {
         try {
-            $user = Auth::user();
-            $roleName = $user->roleLevel?->name;
-
-            $allowed = match ($evaluation->current_stage) {
-                'section_head' => $roleName === 'Section Head' && $evaluation->section_head_id === $user->id,
-                'manager' => $roleName === 'Manager' && $evaluation->manager_id === $user->id,
-                default => false,
-            };
-
-            if (!$allowed) {
-                return $this->errorResponse('Unauthorized to approve this evaluation', 403);
-            }
-
-            if ($evaluation->current_stage === 'section_head') {
-                // Manager tujuan forward DITENTUKAN DI SINI, saat Section Head
-                // approve — diambil dari approver_manager_id milik Section Head
-                // yang sedang bertindak (bukan dari Leader yang membuat evaluasi).
-                $user->loadMissing('approverManager');
-
-                if (!$user->approverManager) {
-                    return $this->errorResponse(
-                        'You do not have an Approver Manager assigned. Please contact Admin to set this up before approving.',
-                        422
-                    );
-                }
-
-                $evaluation->manager_id = $user->approverManager->id;
-                $evaluation->status = 'reviewed_by_section_head';
-                $evaluation->current_stage = 'manager';
-            } elseif ($evaluation->current_stage === 'manager') {
-                $evaluation->status = 'approved';
-                $evaluation->current_stage = 'done';
-            }
-            $evaluation->save();
-
-            EvaluationApproval::create([
-                'evaluation_id' => $evaluation->id,
-                'role' => $evaluation->current_stage === 'done' ? 'manager' : 'section_head',
-                'user_id' => $user->id,
-                'action' => 'approve',
-                'notes' => $request->input('notes'),
-                'acted_at' => now(),
-            ]);
+            $this->flowService->approve($evaluation, Auth::user(), $request->input('notes'));
 
             $evaluation->load(self::FULL_RELATIONS);
 
@@ -399,6 +354,8 @@ class EvaluationController extends Controller
                 new EvaluationResource($evaluation),
                 'Evaluation approved successfully'
             );
+        } catch (\RuntimeException $e) {
+            return $this->errorResponse($e->getMessage(), 403);
         } catch (Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
         }
@@ -411,33 +368,7 @@ class EvaluationController extends Controller
                 'notes' => 'required|string',
             ]);
 
-            $user = Auth::user();
-            $roleName = $user->roleLevel?->name;
-
-            $allowed = match ($evaluation->current_stage) {
-                'section_head' => $roleName === 'Section Head' && $evaluation->section_head_id === $user->id,
-                'manager' => $roleName === 'Manager' && $evaluation->manager_id === $user->id,
-                default => false,
-            };
-
-            if (!$allowed) {
-                return $this->errorResponse('Unauthorized to reject this evaluation', 403);
-            }
-
-            $rejectedFromStage = $evaluation->current_stage;
-
-            $evaluation->status = 'rejected';
-            $evaluation->current_stage = 'leader';
-            $evaluation->save();
-
-            EvaluationApproval::create([
-                'evaluation_id' => $evaluation->id,
-                'role' => $rejectedFromStage === 'manager' ? 'manager' : 'section_head',
-                'user_id' => $user->id,
-                'action' => 'reject',
-                'notes' => $request->input('notes'),
-                'acted_at' => now(),
-            ]);
+            $this->flowService->reject($evaluation, Auth::user(), $request->input('notes'));
 
             $evaluation->load(self::FULL_RELATIONS);
 
@@ -445,6 +376,8 @@ class EvaluationController extends Controller
                 new EvaluationResource($evaluation),
                 'Evaluation rejected successfully'
             );
+        } catch (\RuntimeException $e) {
+            return $this->errorResponse($e->getMessage(), 403);
         } catch (Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
         }
@@ -459,8 +392,6 @@ class EvaluationController extends Controller
             $isAdmin = in_array($roleName, ['Admin']);
             $isOwnerLeader = $roleName === 'Leader' && $evaluation->leader_id === $user->id;
 
-            // Admin bisa hapus evaluasi apapun (konsisten dengan policy action lain).
-            // Leader hanya bisa hapus draft yang dia sendiri buat.
             if (!$isAdmin && !$isOwnerLeader) {
                 return $this->errorResponse('Unauthorized to delete this evaluation', 403);
             }
@@ -476,212 +407,211 @@ class EvaluationController extends Controller
             return $this->errorResponse($e->getMessage(), 500);
         }
     }
+
     public function pendingTriggers(Request $request): JsonResponse
-{
-    try {
-        $user = Auth::user();
-        $roleName = $user->roleLevel?->name;
+    {
+        try {
+            $user = Auth::user();
+            $roleName = $user->roleLevel?->name;
 
-        if (!in_array($roleName, ['Leader', 'Admin', 'HR Admin'])) {
-            return $this->errorResponse('Unauthorized', 403);
-        }
-
-        $query = Employee::query()
-            ->where('employment_type', 'contract')
-            ->whereNotNull('end_contract')
-            ->whereBetween('end_contract', [now()->startOfDay(), now()->addDays(30)->endOfDay()])
-            // belum ada evaluation utk periode kontrak SAAT INI (dibuat dalam 60 hari terakhir)
-            ->whereDoesntHave('evaluations', function ($q) {
-                $q->where('created_at', '>=', now()->subDays(60));
-            });
-
-        if ($roleName === 'Leader') {
-            if ($user->area_id) {
-                $query->where('area_id', $user->area_id);
-            } else {
-                $query->whereRaw('1 = 0'); // Jika Leader tidak memiliki area_id, jangan tampilkan apa-apa
+            if (!in_array($roleName, ['Leader', 'Admin', 'HR Admin'])) {
+                return $this->errorResponse('Unauthorized', 403);
             }
+
+            $type = $request->input('type', 'employee');
+
+            if ($type === 'intern') {
+                $query = Intern::query()
+                    ->where('outcome_status', 'active')
+                    ->whereNotNull('end_contract')
+                    ->whereBetween('end_contract', [now()->startOfDay(), now()->addDays(30)->endOfDay()])
+                    ->whereDoesntHave('evaluations', function ($q) {
+                        $q->where('created_at', '>=', now()->subDays(60));
+                    });
+
+                if ($roleName === 'Leader') {
+                    if ($user->area_id) {
+                        $query->where('area_id', $user->area_id);
+                    } else {
+                        $query->whereRaw('1 = 0');
+                    }
+                }
+
+                $interns = $query->orderBy('end_contract')->get([
+                    'id', 'npk', 'name', 'jabatan', 'department_id', 'section_id',
+                    'join_date', 'start_contract', 'end_contract',
+                ]);
+
+                return $this->successResponse($interns, 'Pending evaluation triggers retrieved successfully');
+            }
+
+            $query = Employee::query()
+                ->where('employment_type', 'contract')
+                ->whereNotNull('end_contract')
+                ->whereBetween('end_contract', [now()->startOfDay(), now()->addDays(30)->endOfDay()])
+                // belum ada evaluation utk periode kontrak SAAT INI (dibuat dalam 60 hari terakhir)
+                ->whereDoesntHave('evaluations', function ($q) {
+                    $q->where('created_at', '>=', now()->subDays(60));
+                });
+
+            if ($roleName === 'Leader') {
+                if ($user->area_id) {
+                    $query->where('area_id', $user->area_id);
+                } else {
+                    $query->whereRaw('1 = 0'); // Jika Leader tidak memiliki area_id, jangan tampilkan apa-apa
+                }
+            }
+
+            $employees = $query->orderBy('end_contract')->get([
+                'id', 'npk', 'name', 'jabatan', 'department_id', 'section_id',
+                'join_date', 'start_contract', 'end_contract', 'employment_type',
+            ]);
+
+            return $this->successResponse($employees, 'Pending evaluation triggers retrieved successfully');
+        } catch (Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
         }
-
-        $employees = $query->orderBy('end_contract')->get([
-            'id', 'npk', 'name', 'jabatan', 'department_id', 'section_id',
-            'join_date', 'start_contract', 'end_contract', 'employment_type',
-        ]);
-
-        return $this->successResponse($employees, 'Pending evaluation triggers retrieved successfully');
-    } catch (Exception $e) {
-        return $this->errorResponse($e->getMessage(), 500);
     }
-}
 
-public function forwardToHrAdmin(Request $request, Evaluation $evaluation): JsonResponse
-{
-    try {
-        $user = Auth::user();
-        $roleName = $user->roleLevel?->name;
+    public function forwardToHrAdmin(Request $request, Evaluation $evaluation): JsonResponse
+    {
+        try {
+            $this->flowService->forwardToHrAdmin($evaluation, Auth::user(), $request->input('notes'));
 
-        if ($roleName !== 'Section Head' || $evaluation->section_head_id !== $user->id) {
-            return $this->errorResponse('Unauthorized to forward this evaluation', 403);
+            $evaluation->load(self::FULL_RELATIONS);
+
+            return $this->successResponse(
+                new EvaluationResource($evaluation),
+                'Evaluation forwarded to HR Admin successfully'
+            );
+        } catch (\RuntimeException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
+        } catch (Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
         }
-
-        if ($evaluation->status !== 'approved' || $evaluation->current_stage !== 'done') {
-            return $this->errorResponse('Evaluation must be fully approved before forwarding to HR Admin', 422);
-        }
-
-        $evaluation->status = 'forwarded_to_hr_admin';
-        $evaluation->current_stage = 'hr_admin';
-        $evaluation->save();
-
-        EvaluationApproval::create([
-            'evaluation_id' => $evaluation->id,
-            'role' => 'section_head',
-            'user_id' => $user->id,
-            'action' => 'forward_to_hr_admin',
-            'notes' => $request->input('notes'),
-            'acted_at' => now(),
-        ]);
-
-        $evaluation->load(self::FULL_RELATIONS);
-
-        return $this->successResponse(
-            new EvaluationResource($evaluation),
-            'Evaluation forwarded to HR Admin successfully'
-        );
-    } catch (Exception $e) {
-        return $this->errorResponse($e->getMessage(), 500);
     }
-}
 
 public function extendContract(Request $request, Evaluation $evaluation): JsonResponse
 {
     try {
-        $user = Auth::user();
-        $roleName = $user->roleLevel?->name;
-
+        $roleName = Auth::user()->roleLevel?->name;
+ 
         if (!in_array($roleName, ['Admin', 'HR Admin'])) {
             return $this->errorResponse('Unauthorized', 403);
         }
-
-        if ($evaluation->current_stage !== 'hr_admin') {
-            return $this->errorResponse('Evaluation is not pending HR Admin decision', 422);
-        }
-
+ 
         $request->validate([
-            'new_end_contract' => 'required|date|after:today',
-            'pkwt_number' => 'nullable|string',
-            'extend_months' => 'nullable|integer|min:1',
+            'extend_months' => 'required|integer|min:1',
             'notes' => 'nullable|string',
         ]);
-
-        $employee = Employee::find($evaluation->employee_id);
-
-        DB::transaction(function () use ($request, $evaluation, $employee, $user) {
-            $employee->contractExtensions()->create([
-                'evaluation_id' => $evaluation->id,
-                'previous_end_contract' => $employee->end_contract,
-                'new_end_contract' => $request->new_end_contract,
-                'pkwt_number' => $request->pkwt_number,
-                'extend_months' => $request->extend_months,
-                'notes' => $request->notes,
-                'extended_by' => $user->id,
-            ]);
-
-            $employee->update(['end_contract' => $request->new_end_contract]);
-
-            $evaluation->update([
-                'status' => 'completed_extended',
-                'current_stage' => 'completed',
-            ]);
-
-            EvaluationApproval::create([
-                'evaluation_id' => $evaluation->id,
-                'role' => 'hr_admin',
-                'user_id' => $user->id,
-                'action' => 'extend_contract',
-                'notes' => $request->notes,
-                'acted_at' => now(),
-            ]);
-        });
-
+ 
+        // === TAMBAHAN INTERN: route ke service sesuai subjek evaluasi.
+        // Action & status yang dihasilkan SAMA PERSIS dengan Employee.
+        if (!empty($evaluation->intern_id)) {
+            $this->internPromotionService->extend($evaluation, Auth::user(), $request->all());
+        } else {
+            $this->employeeContractService->extend($evaluation, Auth::user(), $request->all());
+        }
+ 
         $evaluation->load(self::FULL_RELATIONS);
-
+ 
         return $this->successResponse(new EvaluationResource($evaluation), 'Contract extended successfully');
+    } catch (\RuntimeException $e) {
+        return $this->errorResponse($e->getMessage(), 422);
     } catch (Exception $e) {
         return $this->errorResponse($e->getMessage(), 500);
     }
 }
-
+ 
 public function closeContract(Request $request, Evaluation $evaluation): JsonResponse
 {
     try {
-        $user = Auth::user();
-        $roleName = $user->roleLevel?->name;
-
+        $roleName = Auth::user()->roleLevel?->name;
+ 
         if (!in_array($roleName, ['Admin', 'HR Admin'])) {
             return $this->errorResponse('Unauthorized', 403);
         }
-
-        if ($evaluation->current_stage !== 'hr_admin') {
-            return $this->errorResponse('Evaluation is not pending HR Admin decision', 422);
-        }
-
+ 
         $request->validate([
             'action' => 'required|in:deactivate,delete',
             'reason' => 'nullable|string',
         ]);
-
-        $employee = Employee::find($evaluation->employee_id);
-
-        DB::transaction(function () use ($request, $evaluation, $employee, $user) {
-            if ($request->action === 'deactivate') {
-                $employee->update([
-                    'is_active' => false,
-                    'deactivated_at' => now(),
-                    'deactivated_reason' => $request->reason ?? 'Contract ended, not extended',
-                ]);
-            } else {
-                $employee->delete();
-            }
-
-            $evaluation->update([
-                'status' => 'completed_not_extended',
-                'current_stage' => 'completed',
-            ]);
-
-            EvaluationApproval::create([
-                'evaluation_id' => $evaluation->id,
-                'role' => 'hr_admin',
-                'user_id' => $user->id,
-                'action' => 'close_contract_' . $request->action,
-                'notes' => $request->reason,
-                'acted_at' => now(),
-            ]);
-        });
-
+ 
+        // === TAMBAHAN INTERN: route ke service sesuai subjek evaluasi.
+        // Action & status yang dihasilkan SAMA PERSIS dengan Employee,
+        // jadi form frontend tidak perlu dibedakan berdasarkan subjek.
+        if (!empty($evaluation->intern_id)) {
+            $this->internPromotionService->close($evaluation, Auth::user(), $request->all());
+        } else {
+            $this->employeeContractService->close($evaluation, Auth::user(), $request->all());
+        }
+ 
         $evaluation->load(self::FULL_RELATIONS);
-
+ 
         return $this->successResponse(new EvaluationResource($evaluation), 'Contract closed successfully');
+    } catch (\RuntimeException $e) {
+        return $this->errorResponse($e->getMessage(), 422);
     } catch (Exception $e) {
         return $this->errorResponse($e->getMessage(), 500);
     }
 }
 
-public function pendingHrDecisions(Request $request): JsonResponse
+  
+
+  
+
+    public function pendingHrDecisions(Request $request): JsonResponse
+    {
+        try {
+            $roleName = Auth::user()->roleLevel?->name;
+
+            if (!in_array($roleName, ['Admin', 'HR Admin'])) {
+                return $this->errorResponse('Unauthorized', 403);
+            }
+
+            $query = Evaluation::with(self::FULL_RELATIONS)
+                ->where('current_stage', 'hr_admin')
+                ->where('status', 'forwarded_to_hr_admin');
+
+            if ($request->filled('employee_id')) {
+                $query->where('employee_id', $request->employee_id);
+            }
+
+            $this->applyTypeFilter($query, $request);
+
+            $evaluations = $query->orderBy('updated_at', 'desc')
+                ->paginate($request->input('per_page', 15));
+
+            return $this->successResponse(
+                EvaluationResource::collection($evaluations)->response()->getData(true),
+                'Pending HR Admin decisions retrieved successfully'
+            );
+        } catch (Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    public function hrDecisionHistory(Request $request): JsonResponse
 {
     try {
-        $user = Auth::user();
-        $roleName = $user->roleLevel?->name;
 
-        if (!in_array($roleName, ['Admin', 'HR Admin'])) {
-            return $this->errorResponse('Unauthorized', 403);
+        $query = Evaluation::with(array_merge(self::FULL_RELATIONS, ['contractExtensions']))
+            ->where('current_stage', 'completed')
+            ->whereIn('status', ['completed_extended', 'completed_not_extended']);
+
+        $this->applyTypeFilter($query, $request);
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
         }
 
-        $query = Evaluation::with(self::FULL_RELATIONS)
-            ->where('current_stage', 'hr_admin')
-            ->where('status', 'forwarded_to_hr_admin');
-
-        if ($request->filled('employee_id')) {
-            $query->where('employee_id', $request->employee_id);
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('npk', 'like', "%{$search}%")
+                  ->orWhereHas('employee', fn($eq) => $eq->where('name', 'like', "%{$search}%"))
+                  ->orWhereHas('intern', fn($iq) => $iq->where('name', 'like', "%{$search}%"));
+            });
         }
 
         $evaluations = $query->orderBy('updated_at', 'desc')
@@ -689,7 +619,7 @@ public function pendingHrDecisions(Request $request): JsonResponse
 
         return $this->successResponse(
             EvaluationResource::collection($evaluations)->response()->getData(true),
-            'Pending HR Admin decisions retrieved successfully'
+            'HR decision history retrieved successfully'
         );
     } catch (Exception $e) {
         return $this->errorResponse($e->getMessage(), 500);

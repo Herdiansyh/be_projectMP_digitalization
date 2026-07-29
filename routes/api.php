@@ -58,8 +58,8 @@ Route::middleware('auth:api')->group(function () {
         Route::post('/{noReq}/assign-manpower', [FptkController::class, 'assignManpower'])
             ->middleware('permission:fptk.process_hrd');
         Route::post('/{noReq}/assign-area-line', [FptkController::class, 'assignAreaLine'])
-            ->middleware('permission:fptk.assign_area_line');   
-        });
+            ->middleware('permission:fptk.assign_area_line');
+    });
 
     // ── Approvals ─────────────────────────────────────────────────────
     Route::prefix('approvals')->group(function () {
@@ -195,6 +195,8 @@ Route::middleware('auth:api')->group(function () {
             ->middleware('permission:evaluations.view');
         Route::get('/pending-hr-decisions', [EvaluationController::class, 'pendingHrDecisions'])
             ->middleware('permission:evaluations.hr_decisions');
+        Route::get('/hr-decision-history', [EvaluationController::class, 'hrDecisionHistory'])
+            ->middleware('permission:evaluations.hr_decisions');   // ← pindah ke sini, path tanpa "evaluations/"
         Route::get('/{evaluation}', [EvaluationController::class, 'show'])
             ->middleware('permission:evaluations.view,evaluations.hr_decisions');
         Route::put('/{evaluation}', [EvaluationController::class, 'update'])
@@ -219,11 +221,9 @@ Route::middleware('auth:api')->group(function () {
             ->middleware('permission:evaluations.hr_decisions');
     });
 
-    // Mengelola kriteria/form evaluasi adalah tugas Data Master → is_admin.
     Route::middleware('admin')->prefix('evaluation-criteria')->group(function () {
         // Bulk Save
         Route::put('/bulk-save', [EvaluationCriteriaController::class, 'bulkSave']);
-
         // Groups
         Route::post('/groups', [EvaluationCriteriaController::class, 'storeGroup']);
         Route::put('/groups/{id}', [EvaluationCriteriaController::class, 'updateGroup']);
@@ -261,11 +261,12 @@ Route::middleware('auth:api')->group(function () {
             ->middleware('permission:competency.qa_review');
         Route::get('/qa-queue', [EmployeeAssessmentController::class, 'qaQueue'])
             ->middleware('permission:competency.qa_review');
-            Route::get('/monitoring', [EmployeeAssessmentController::class, 'monitoring'])
+        Route::get('/monitoring', [EmployeeAssessmentController::class, 'monitoring'])
             ->middleware('permission:competency.monitor');
-       Route::get('/station-summary', [EmployeeAssessmentController::class, 'stationSummary']);
-            Route::get('/{assessment}', [EmployeeAssessmentController::class, 'showDetail']);
+        Route::get('/station-summary', [EmployeeAssessmentController::class, 'stationSummary']);
+        Route::get('/{assessment}', [EmployeeAssessmentController::class, 'showDetail']);
         Route::post('/{assessment}/qa', [EmployeeAssessmentController::class, 'qaStore'])
             ->middleware('permission:competency.qa_review');
-            });
+    });
+
 });

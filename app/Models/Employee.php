@@ -65,9 +65,9 @@ public function replacementRequisition(): HasOne
     return $this->hasOne(Requisition::class, 'replacement_employee_id', 'id');
 }
     public function contractExtensions()
-{
-    return $this->hasMany(EvaluationContractExtension::class);
-}
+    {
+        return $this->hasManyThrough(EvaluationContractExtension::class, Evaluation::class);
+    }
     public function getDaysUntilExpiryAttribute(): ?int
     {
         if (!$this->end_contract) return null;

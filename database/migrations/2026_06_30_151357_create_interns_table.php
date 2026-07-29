@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -20,6 +21,7 @@ return new class extends Migration
             $table->foreignId('department_id')->nullable()->constrained('departments')->nullOnDelete();
             $table->foreignId('section_id')->nullable()->constrained('sections')->nullOnDelete();
 
+            $table->string("promotion_status",30)->default('active');
             // Menggantikan role_level_id (FK ke role_levels, sudah dihapus)
             $table->string('role_level')->nullable();
 
@@ -52,6 +54,13 @@ return new class extends Migration
             $table->foreign('station_id')->references('id')->on('stations')->nullOnDelete();
             $table->foreign('no_req')->references('no_req')->on('requisitions')->nullOnDelete();
         });
+        if (DB  ::getDriverName() !== 'sqlite') {
+            DB::statement("
+                ALTER TABLE interns
+                ADD CONSTRAINT chk_interns_promotion_status
+                CHECK (promotion_status IN ('active','promoted','not_extended'))
+            ");
+        }
     }
 
     /**

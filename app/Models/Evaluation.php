@@ -11,6 +11,7 @@ class Evaluation extends Model
 {
     protected $fillable = [
         'employee_id',
+        'intern_id', // === TAMBAHAN INTERN ===
         'department_id',
         'department_head_id',
         'leader_id',
@@ -32,6 +33,7 @@ class Evaluation extends Model
 
     protected $casts = [
         'employee_id' => 'integer',
+        'intern_id' => 'integer', // === TAMBAHAN INTERN ===
         'department_id' => 'integer',
         'department_head_id' => 'integer',
         'leader_id' => 'integer',
@@ -48,6 +50,12 @@ class Evaluation extends Model
     public function employee(): BelongsTo
     {
         return $this->belongsTo(Employee::class);
+    }
+
+    // === TAMBAHAN INTERN ===
+    public function intern(): BelongsTo
+    {
+        return $this->belongsTo(Intern::class);
     }
 
     public function department(): BelongsTo
@@ -90,6 +98,11 @@ class Evaluation extends Model
         return $this->hasMany(EvaluationApproval::class);
     }
 
+    public function contractExtensions(): HasMany
+    {
+        return $this->hasMany(EvaluationContractExtension::class);
+    }
+
     public function isEditableByRole(string $role): bool
     {
         return match ($role) {
@@ -120,25 +133,25 @@ class Evaluation extends Model
     }
 
     public function recalculateTotalScore(): void
-{
-    $shScores = $this->scores()
-        ->where('filled_by_role', 'section_head')
-        ->with('criteria')
-        ->get();
+    {
+        $shScores = $this->scores()
+            ->where('filled_by_role', 'section_head')
+            ->with('criteria')
+            ->get();
 
-    if ($shScores->isEmpty()) {
-        $this->total_score = null;
+        if ($shScores->isEmpty()) {
+            $this->total_score = null;
+            $this->saveQuietly();
+            return;
+        }
+
+        $totalWeighted = $shScores->sum('score_x_weight');
+        $totalWeight = $shScores->sum(fn ($s) => $s->criteria->weight ?? 0);
+
+        $this->total_score = $totalWeight > 0
+            ? round($totalWeighted / $totalWeight, 2)
+            : null;
+
         $this->saveQuietly();
-        return;
     }
-
-    $totalWeighted = $shScores->sum('score_x_weight');
-    $totalWeight = $shScores->sum(fn ($s) => $s->criteria->weight ?? 0);
-
-    $this->total_score = $totalWeight > 0
-        ? round($totalWeighted / $totalWeight, 2)
-        : null;
-
-    $this->saveQuietly();
-}
 }
