@@ -115,6 +115,7 @@ class EvaluationController extends Controller
     public function store(StoreEvaluationRequest $request): JsonResponse
     {
         try {
+            /** @var \App\Models\User $user */
             $user = Auth::user();
             $user->load(['approverSectionHead']);
 

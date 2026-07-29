@@ -146,15 +146,19 @@ class InternController extends Controller
             return $this->errorResponse($e->getMessage(), 500);
         }
     }
-
-    /**
-     * List ringkas intern (untuk dropdown, dsb).
-     * Dibatasi 200 baris — cukup untuk dropdown, mencegah query unbounded.
-     */
    public function activeList(): JsonResponse
     {
         try {
-            $interns = Intern::select('id', 'npk', 'name', 'jabatan', 'department_id')
+            $interns = Intern::select(
+                    'id',
+                    'npk',
+                    'name',
+                    'jabatan',
+                    'department_id',
+                    'join_date',
+                    'start_contract',
+                    'end_contract'
+                )
                 ->where('outcome_status', 'active')
                 ->with('department:id,name')
                 ->orderBy('name')

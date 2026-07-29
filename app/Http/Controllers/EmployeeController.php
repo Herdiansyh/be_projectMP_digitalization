@@ -83,7 +83,6 @@ public function index(Request $request): JsonResponse
             );
         }
 
-        // Samakan dengan InternController: cap per_page maksimal 100.
         $perPage = min((int) $request->input('per_page', 15), 100);
         $employees = $query->paginate($perPage);
 
@@ -172,12 +171,19 @@ public function index(Request $request): JsonResponse
             return $this->errorResponse($e->getMessage(), 500);
         }
     }
-
-    // Di EmployeeController.php
-public function activeList(): JsonResponse
+    public function activeList(): JsonResponse
     {
         try {
-            $employees = Employee::select('id', 'npk', 'name', 'jabatan', 'department_id')
+            $employees = Employee::select(
+                    'id',
+                    'npk',
+                    'name',
+                    'jabatan',
+                    'department_id',
+                    'join_date',
+                    'start_contract',
+                    'end_contract'
+                )
                 ->where('is_active', true)
                 ->with('department:id,name')
                 ->orderBy('name')
