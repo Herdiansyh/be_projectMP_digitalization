@@ -13,14 +13,24 @@ class EvaluationCriteriaSeeder extends Seeder
 {
     public function run(): void
     {
+        $groupDescription = 'Pencapaian hasil kerja dibandingkan dengan target yang telah ditentukan, dan/atau Penyelesaian laporan selama periode penilaian:';
+
         $groupA = EvaluationCriteriaGroup::updateOrCreate(
             ['code' => 'A'],
-            ['name' => 'Hasil Kerja', 'order' => 1]
+            [
+                'name' => 'Hasil Kerja',
+                'description' => $groupDescription,
+                'order' => 1,
+            ]
         );
 
         $groupB = EvaluationCriteriaGroup::updateOrCreate(
             ['code' => 'B'],
-            ['name' => 'Proses Kerja', 'order' => 2]
+            [
+                'name' => 'Proses Kerja',
+                'description' => $groupDescription,
+                'order' => 2,
+            ]
         );
 
         $this->createCriteria(
@@ -73,7 +83,7 @@ class EvaluationCriteriaSeeder extends Seeder
 
         $subgroupI = EvaluationCriteriaSubgroup::updateOrCreate(
             ['group_id' => $groupB->id, 'roman_code' => 'I'],
-            ['name' => 'Kedisiplinan', 'order' => 1]
+            ['name' => 'Kedisiplinan', 'description' => null, 'order' => 1]
         );
 
         $this->createCriteria(
@@ -158,7 +168,7 @@ class EvaluationCriteriaSeeder extends Seeder
 
         $subgroupII = EvaluationCriteriaSubgroup::updateOrCreate(
             ['group_id' => $groupB->id, 'roman_code' => 'II'],
-            ['name' => 'Hubungan Manusia', 'order' => 2]
+            ['name' => 'Hubungan Manusia', 'description' => null, 'order' => 2]
         );
 
         $this->createCriteria(
@@ -195,7 +205,7 @@ class EvaluationCriteriaSeeder extends Seeder
 
         $subgroupIII = EvaluationCriteriaSubgroup::updateOrCreate(
             ['group_id' => $groupB->id, 'roman_code' => 'III'],
-            ['name' => 'Ide Perbaikan (SS)', 'order' => 3]
+            ['name' => 'Ide Perbaikan (SS)', 'description' => null, 'order' => 3]
         );
 
         $this->createCriteria(
@@ -216,21 +226,21 @@ class EvaluationCriteriaSeeder extends Seeder
 
         $subgroupIV = EvaluationCriteriaSubgroup::updateOrCreate(
             ['group_id' => $groupB->id, 'roman_code' => 'IV'],
-            ['name' => 'Ketelitian', 'order' => 4]
+            ['name' => 'Ketelitian', 'description' => null, 'order' => 4]
         );
 
         $this->createCriteria($groupB, $subgroupIV, null, 3, 'standard', [], 1);
 
         $subgroupV = EvaluationCriteriaSubgroup::updateOrCreate(
             ['group_id' => $groupB->id, 'roman_code' => 'V'],
-            ['name' => 'Semangat Kerja', 'order' => 5]
+            ['name' => 'Semangat Kerja', 'description' => null, 'order' => 5]
         );
 
         $this->createCriteria($groupB, $subgroupV, null, 3, 'standard', [], 1);
 
         $subgroupVI = EvaluationCriteriaSubgroup::updateOrCreate(
             ['group_id' => $groupB->id, 'roman_code' => 'VI'],
-            ['name' => 'Etika Kerja', 'order' => 6]
+            ['name' => 'Etika Kerja', 'description' => null, 'order' => 6]
         );
 
         $this->createCriteria($groupB, $subgroupVI, null, 4, 'standard', [], 1);
