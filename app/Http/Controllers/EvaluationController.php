@@ -221,7 +221,15 @@ class EvaluationController extends Controller
             $user = Auth::user();
             $roleName = $user->roleLevel?->name;
 
-            if ($roleName !== 'Leader' || $evaluation->leader_id !== $user->id || $evaluation->current_stage !== 'leader') {
+            // Admin bisa override update kapan pun, apa pun stage/ownership-nya.
+            // Selain Admin, tetap harus Leader pemilik evaluation ini, dan
+            // evaluation masih berada di stage 'leader'.
+            $isAdmin = $roleName === 'Admin';
+            $isOwnerLeaderAtLeaderStage = $roleName === 'Leader'
+                && $evaluation->leader_id === $user->id
+                && $evaluation->current_stage === 'leader';
+
+            if (!$isAdmin && !$isOwnerLeaderAtLeaderStage) {
                 return $this->errorResponse('Evaluation is locked for updates', 403);
             }
 
@@ -260,18 +268,26 @@ class EvaluationController extends Controller
                 'Leader' => 'leader',
                 'Section Head' => 'section_head',
                 'Manager' => 'manager',
-                'Admin' => 'leader',
+                // Admin mengisi sebagai role yang sedang aktif di stage saat
+                // ini, supaya skor tersimpan di kolom yang relevan.
+                'Admin' => match ($evaluation->current_stage) {
+                    'section_head' => 'section_head',
+                    'manager' => 'manager',
+                    default => 'leader',
+                },
                 default => null,
             };
 
-            $allowedStage = match ($filledByRole) {
+            // Admin selalu boleh override, apa pun stage/ownership-nya.
+            // Role lain tetap harus pemilik stage yang sedang berjalan.
+            $allowedStage = $roleName === 'Admin' ? true : match ($filledByRole) {
                 'leader' => $evaluation->leader_id === $user->id && $evaluation->current_stage === 'leader',
                 'section_head' => $evaluation->section_head_id === $user->id && $evaluation->current_stage === 'section_head',
                 'manager' => $evaluation->manager_id === $user->id && $evaluation->current_stage === 'manager',
                 default => false,
             };
 
-            if (!$allowedStage) {
+            if (!$allowedStage || !$filledByRole) {
                 return $this->errorResponse('Evaluation is locked for score updates', 403);
             }
 
