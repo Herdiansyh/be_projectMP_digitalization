@@ -57,6 +57,7 @@ class EvaluationResource extends JsonResource
                 'start_contract' => $this->employee->start_contract?->format('Y-m-d'),
                 'end_contract' => $this->employee->end_contract?->format('Y-m-d'),
                 'employment_type' => $this->employee->employment_type,
+                'pkwt_number' => $this->employee->pkwt_number,
             ] : null),
             // === TAMBAHAN INTERN ===
             'intern' => $this->whenLoaded('intern', fn() => $this->intern ? [

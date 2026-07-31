@@ -10,8 +10,7 @@ class EvaluationFlowService
 {
     /**
      * Submit evaluasi draft dari Leader ke Section Head.
-     * Validasi SAMA persis untuk Employee maupun Intern (termasuk PKWT wajib —
-     * disamakan sesuai keputusan, tidak dibedakan per subjek).
+     * Validasi: PKWT hanya wajib untuk Employee, bukan untuk Intern.
      */
     public function submit(Evaluation $evaluation, User $user): Evaluation
     {
@@ -23,7 +22,8 @@ class EvaluationFlowService
             throw new \RuntimeException('Evaluation cannot be submitted from this stage');
         }
 
-        if (empty($evaluation->pkwt)) {
+        // PKWT validation only applies to employees, not interns
+        if (!empty($evaluation->employee_id) && empty($evaluation->employee->pkwt_number)) {
             throw new \RuntimeException('PKWT is required before submitting');
         }
 

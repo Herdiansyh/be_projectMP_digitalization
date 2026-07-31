@@ -17,6 +17,7 @@ class Employee extends Model
         'role_level',
         'jabatan',
         'employment_type',
+        'pkwt_number',
         'join_date',
         'start_contract',
         'end_contract',

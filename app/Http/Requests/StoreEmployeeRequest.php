@@ -28,6 +28,7 @@ class StoreEmployeeRequest extends FormRequest
             'line_id'         => ['nullable', 'exists:lines,id'],
             'station_id'      => ['nullable', 'exists:stations,id'],
             'employment_type' => ['required', 'in:permanent,contract,apprentice'],
+            'pkwt_number'     => ['nullable', 'string', 'max:50'],
             'join_date'       => ['required', 'date', 'before_or_equal:start_contract'],
             'start_contract'  => ['required', 'date'],
             'end_contract'    => [

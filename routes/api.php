@@ -196,7 +196,7 @@ Route::middleware('auth:api')->group(function () {
         Route::get('/pending-hr-decisions', [EvaluationController::class, 'pendingHrDecisions'])
             ->middleware('permission:evaluations.hr_decisions');
         Route::get('/hr-decision-history', [EvaluationController::class, 'hrDecisionHistory'])
-            ->middleware('permission:evaluations.hr_decisions');   // ← pindah ke sini, path tanpa "evaluations/"
+            ->middleware('permission:evaluations.hr_decisions');
         Route::get('/{evaluation}', [EvaluationController::class, 'show'])
             ->middleware('permission:evaluations.view,evaluations.hr_decisions');
         Route::put('/{evaluation}', [EvaluationController::class, 'update'])
@@ -216,6 +216,10 @@ Route::middleware('auth:api')->group(function () {
         Route::post('/{evaluation}/forward-to-hr-admin', [EvaluationController::class, 'forwardToHrAdmin'])
             ->middleware('permission:evaluations.view');
         Route::post('/{evaluation}/extend-contract', [EvaluationController::class, 'extendContract'])
+            ->middleware('permission:evaluations.hr_decisions');
+        Route::post('/{evaluation}/extend-intern-contract', [EvaluationController::class, 'extendInternContract'])
+            ->middleware('permission:evaluations.hr_decisions');
+        Route::post('/{evaluation}/convert-to-permanent', [EvaluationController::class, 'convertToPermanent'])
             ->middleware('permission:evaluations.hr_decisions');
         Route::post('/{evaluation}/close-contract', [EvaluationController::class, 'closeContract'])
             ->middleware('permission:evaluations.hr_decisions');

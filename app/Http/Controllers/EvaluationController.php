@@ -101,6 +101,9 @@ class EvaluationController extends Controller
                 $query->where('status', $request->status);
             }
 
+            if ($request->filled('current_stage')) {
+                $query->where('current_stage', $request->current_stage);
+            }
             $evaluations = $query->orderBy('created_at', 'desc')->paginate($request->input('per_page', 15));
 
             return $this->successResponse(
@@ -524,8 +527,16 @@ public function extendContract(Request $request, Evaluation $evaluation): JsonRe
  
         // === TAMBAHAN INTERN: route ke service sesuai subjek evaluasi.
         // Action & status yang dihasilkan SAMA PERSIS dengan Employee.
+        // Untuk intern, cek extend_pkwt dari recommendation:
+        // - extend_pkwt = true: naik jadi employee (pakai extend())
+        // - extend_pkwt = false: tetap intern, hanya perpanjang magang (pakai extendInternOnly())
         if (!empty($evaluation->intern_id)) {
-            $this->internPromotionService->extend($evaluation, Auth::user(), $request->all());
+            $extendPkwt = !empty($evaluation->recommendation) && !empty($evaluation->recommendation->extend_pkwt);
+            if ($extendPkwt) {
+                $this->internPromotionService->extend($evaluation, Auth::user(), $request->all());
+            } else {
+                $this->internPromotionService->extendInternOnly($evaluation, Auth::user(), $request->all());
+            }
         } else {
             $this->employeeContractService->extend($evaluation, Auth::user(), $request->all());
         }
@@ -539,7 +550,35 @@ public function extendContract(Request $request, Evaluation $evaluation): JsonRe
         return $this->errorResponse($e->getMessage(), 500);
     }
 }
- 
+
+public function extendInternContract(Request $request, Evaluation $evaluation): JsonResponse
+{
+    try {
+        $roleName = Auth::user()->roleLevel?->name;
+
+        if (!in_array($roleName, ['Admin', 'HR Admin'])) {
+            return $this->errorResponse('Unauthorized', 403);
+        }
+
+        $request->validate([
+            'extend_months' => 'required|integer|min:1',
+            'start_date' => 'required|date',
+            'notes' => 'nullable|string',
+        ]);
+
+        // Hanya untuk intern - perpanjang masa magang TANPA menjadikan employee
+        $this->internPromotionService->extendInternOnly($evaluation, Auth::user(), $request->all());
+
+        $evaluation->load(self::FULL_RELATIONS);
+
+        return $this->successResponse(new EvaluationResource($evaluation), 'Intern contract extended successfully');
+    } catch (\RuntimeException $e) {
+        return $this->errorResponse($e->getMessage(), 422);
+    } catch (Exception $e) {
+        return $this->errorResponse($e->getMessage(), 500);
+    }
+}
+
 public function closeContract(Request $request, Evaluation $evaluation): JsonResponse
 {
     try {
@@ -638,6 +677,37 @@ public function closeContract(Request $request, Evaluation $evaluation): JsonRes
             EvaluationResource::collection($evaluations)->response()->getData(true),
             'HR decision history retrieved successfully'
         );
+    } catch (Exception $e) {
+        return $this->errorResponse($e->getMessage(), 500);
+    }
+}
+
+public function convertToPermanent(Request $request, Evaluation $evaluation): JsonResponse
+{
+    try {
+        $roleName = Auth::user()->roleLevel?->name;
+
+        if (!in_array($roleName, ['Admin', 'HR Admin'])) {
+            return $this->errorResponse('Unauthorized', 403);
+        }
+
+        $request->validate([
+            'notes' => 'nullable|string',
+        ]);
+
+        // MP diangkat jadi karyawan tetap — berlaku untuk subjek Employee
+        // maupun Intern (Intern langsung dikonversi jadi Employee permanent).
+        if (!empty($evaluation->intern_id)) {
+            $this->internPromotionService->convertToPermanent($evaluation, Auth::user(), $request->all());
+        } else {
+            $this->employeeContractService->convertToPermanent($evaluation, Auth::user(), $request->all());
+        }
+
+        $evaluation->load(self::FULL_RELATIONS);
+
+        return $this->successResponse(new EvaluationResource($evaluation), 'Employee converted to permanent successfully');
+    } catch (\RuntimeException $e) {
+        return $this->errorResponse($e->getMessage(), 422);
     } catch (Exception $e) {
         return $this->errorResponse($e->getMessage(), 500);
     }

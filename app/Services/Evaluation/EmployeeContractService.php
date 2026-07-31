@@ -35,10 +35,17 @@ public function extend(Evaluation $evaluation, User $user, array $payload): Eval
             'extended_by' => $user->id,
         ]);
 
-        $employee->update([
+        $employeeUpdateData = [
             'start_contract' => $newStartContract->toDateString(),
             'end_contract' => $newEndContract->toDateString(),
-        ]);
+        ];
+
+        // Update pkwt_number from recommendation if available (idempotent - don't overwrite with null)
+        if ($evaluation->recommendation && $evaluation->recommendation->pkwt_number !== null) {
+            $employeeUpdateData['pkwt_number'] = $evaluation->recommendation->pkwt_number;
+        }
+
+        $employee->update($employeeUpdateData);
 
         $evaluation->update([
             'status' => 'completed_extended',
@@ -88,6 +95,41 @@ public function extend(Evaluation $evaluation, User $user, array $payload): Eval
                 'user_id' => $user->id,
                 'action' => 'close_contract_' . $payload['action'],
                 'notes' => $payload['reason'] ?? null,
+                'acted_at' => now(),
+            ]);
+        });
+
+        return $evaluation->fresh();
+    }
+
+
+
+    
+    public function convertToPermanent(Evaluation $evaluation, User $user, array $payload): Evaluation
+    {
+        if ($evaluation->current_stage !== 'hr_admin' || empty($evaluation->employee_id)) {
+            throw new \RuntimeException('Evaluation is not pending HR Admin decision for an Employee');
+        }
+
+        $employee = Employee::findOrFail($evaluation->employee_id);
+
+        DB::transaction(function () use ($payload, $evaluation, $employee, $user) {
+            $employee->update([
+                'employment_type' => 'permanent',
+                'end_contract' => null,
+            ]);
+
+            $evaluation->update([
+                'status' => 'completed_permanent',
+                'current_stage' => 'completed',
+            ]);
+
+            EvaluationApproval::create([
+                'evaluation_id' => $evaluation->id,
+                'role' => 'hr_admin',
+                'user_id' => $user->id,
+                'action' => 'convert_to_permanent',
+                'notes' => $payload['notes'] ?? null,
                 'acted_at' => now(),
             ]);
         });

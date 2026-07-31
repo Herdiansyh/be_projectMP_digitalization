@@ -180,6 +180,7 @@ public function index(Request $request): JsonResponse
                     'name',
                     'jabatan',
                     'department_id',
+                    'pkwt_number',
                     'join_date',
                     'start_contract',
                     'end_contract'
