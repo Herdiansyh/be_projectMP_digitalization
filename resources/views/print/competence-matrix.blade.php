@@ -186,6 +186,7 @@
         <div class="cm-page">
             <div class="cm-header">
                 <img class="logo" src="{{ asset('favicon.png') }}" alt="Astra Visteon">
+                <div class="doc-no">Doc. No : 08 - PROD - 001</div>
             </div>
             <div class="cm-title">COMPETENCE MATRIX</div>
 
@@ -245,10 +246,10 @@
                     @foreach ($group['rows'] as $i => $row)
                         <tr>
                             <td>{{ $i + 1 }}</td>
-                            <td class="name-col">{{ $row['employee']->name }}</td>
-                            <td>{{ $row['employee']->npk }}</td>
-                            <td>{{ $row['employee']->group ?? '-' }}</td>
-                            <td></td>
+                            <td class="name-col">{{ $row['subject']->name }}</td>
+                            <td>{{ $row['subject']->npk }}</td>
+                            <td>{{ $row['subject']->group ?? '-' }}</td>
+                            <td>{{ $row['line_abbr'] }}</td>
                             @foreach ($row['cells'] as $cell)
                                 <td>
                                     @include('print.partials.donut-svg', [

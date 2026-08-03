@@ -30,6 +30,7 @@ class StoreInternRequest extends FormRequest
             'join_date'       => ['required', 'date', 'before_or_equal:start_contract'],
             'start_contract'  => ['required', 'date'],
             'end_contract'    => ['required', 'date', 'after:start_contract'],
+            'outcome_status'  => ['sometimes', 'in:active,converted,ended'],
         ];
     }
 

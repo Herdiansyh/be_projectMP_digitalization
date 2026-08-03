@@ -38,47 +38,38 @@ class ManpowerPrintController extends Controller
     {
         $decoded = json_decode($request->input('items'), true);
 
-        $validator = Validator::make(['items' => $decoded], [
-            'items'                 => 'required|array|min:1',
-            'items.*.subject_type'  => 'required|in:employee,intern',
-            'items.*.subject_id'    => 'required|integer',
-        ]);
+        $validator = $this->makeValidatorForItems($decoded);
 
         abort_if($validator->fails(), 422);
 
-        // Untuk saat ini competence matrix hanya berlaku untuk Employee
-        // (Intern belum masuk skema station/line assessment yang sama).
-        $employeeIds = collect($decoded)
-            ->where('subject_type', 'employee')
-            ->pluck('subject_id')
-            ->unique()
-            ->values();
+        $items = collect($decoded);
 
-        abort_if($employeeIds->isEmpty(), 404, 'No valid employees to print.');
+        // Dukung dua tipe sekaligus: employee & intern. InternList mengirim
+        // subject_type=intern; EmployeeList mengirim subject_type=employee.
+        $subjects = $items->map(function ($item) {
+            return $this->resolveSubject($item['subject_type'], $item['subject_id']);
+        })->filter();
 
-        $employees = Employee::with(['department', 'section', 'area', 'line', 'station'])
-            ->whereIn('id', $employeeIds)
-            ->get();
+        abort_if($subjects->isEmpty(), 404, 'No valid manpower found to print.');
 
-        abort_if($employees->isEmpty(), 404, 'No valid employees found to print.');
-
-        // Grup 1 tabel per Line, seperti contoh dokumen (LINE : Main Assy K1ZA).
-        $lineGroups = $employees
-            ->filter(fn ($e) => $e->line_id !== null)
+        // Grup 1 tabel per Line.
+        $lineGroups = $subjects
+            ->filter(fn ($s) => $s->line_id !== null)
             ->groupBy('line_id')
-            ->map(function ($employeesInLine) {
-                $first = $employeesInLine->first();
+            ->map(function ($subjectsInLine) {
+                $first = $subjectsInLine->first();
                 $line  = $first->line;
+                $lineAbbr = $this->abbreviateLineName($line->name ?? '');
 
-                // Semua station yang termasuk Line ini.
-                // Tidak ada kolom urutan di tabel stations, jadi urut berdasarkan id.
                 $stations = Station::where('line_id', $line->id)
                     ->orderBy('id')
                     ->get();
 
-                $rows = $employeesInLine->values()->map(function ($employee) use ($stations) {
-                    $cells = $stations->map(function ($station) use ($employee) {
-                        $level = $this->latestApprovedLevel($employee->id, $station->id);
+                $rows = $subjectsInLine->values()->map(function ($subject) use ($stations, $lineAbbr) {
+                    $cells = $stations->map(function ($station) use ($subject) {
+                        $fkNama = $subject instanceof Intern ? 'intern_id' : 'employee_id';
+
+                        $level = $this->latestAssessmentLevel($fkNama, $subject->id, $station->id);
 
                         return [
                             'station_id' => $station->id,
@@ -87,8 +78,9 @@ class ManpowerPrintController extends Controller
                     });
 
                     return [
-                        'employee' => $employee,
-                        'cells'    => $cells,
+                        'subject'   => $subject,
+                        'line_abbr' => $lineAbbr,
+                        'cells'     => $cells,
                     ];
                 });
 
@@ -104,7 +96,7 @@ class ManpowerPrintController extends Controller
             })
             ->values();
 
-        abort_if($lineGroups->isEmpty(), 404, 'None of the selected employees are assigned to a line yet.');
+        abort_if($lineGroups->isEmpty(), 404, 'None of the selected manpower are assigned to a line yet.');
 
         return view('print.competence-matrix', [
             'lineGroups'  => $lineGroups,
@@ -114,13 +106,13 @@ class ManpowerPrintController extends Controller
 
     /**
      * Ambil level (0-4) dari assessment approved terbaru untuk kombinasi
-     * employee + station tertentu. Mengikuti pembulatan yang sama dengan
-     * partial manpower-content (min(4, max(0, round(final_score)))).
+     * subjek (employee/intern) + station tertentu. Mengikuti pembulatan yang
+     * sama dengan partial manpower-content (min(4, max(0, round(final_score)))).
      */
-    private function latestApprovedLevel(int $employeeId, int $stationId): ?int
+    private function latestAssessmentLevel(string $fkColumn, int $subjectId, int $stationId): ?int
     {
         $latest = EmployeeAssessment::with('matrix')
-            ->where('employee_id', $employeeId)
+            ->where($fkColumn, $subjectId)
             ->where('status', 'approved')
             ->whereHas('matrix', fn ($q) => $q->where('station_id', $stationId))
             ->orderByDesc('assessed_at')
@@ -131,6 +123,49 @@ class ManpowerPrintController extends Controller
         }
 
         return min(4, max(0, (int) round($latest->final_score)));
+    }
+
+    /**
+     * Singkatan nama Line: huruf pertama kata pertama + huruf pertama kata kedua.
+     * Contoh: "Main Assy K1ZA" -> "MA", "LINE 1" -> "L1".
+     */
+    private function abbreviateLineName(string $name): string
+    {
+        $words = preg_split('/\s+/', trim($name)) ?: [];
+
+        $first  = mb_substr($words[0] ?? '', 0, 1);
+        $second = mb_substr($words[1] ?? '', 0, 1);
+
+        $abbr = mb_strtoupper($first . $second);
+
+        return $abbr !== '' ? $abbr : '-';
+    }
+
+    /**
+     * Bangun validator valid untuk array $decoded dari input 'items'.
+     */
+    private function makeValidatorForItems(array $decoded)
+    {
+        return Validator::make(['items' => $decoded], [
+            'items'                 => 'required|array|min:1',
+            'items.*.subject_type'  => 'required|in:employee,intern',
+            'items.*.subject_id'    => 'required|integer',
+        ]);
+    }
+
+    /**
+     * Load entity employee/intern berdasarkan tipe + id, dengan relasi yang
+     * dibutuhkan view competence-matrix. Mengembalikan null bila tidak ketemu.
+     */
+    private function resolveSubject(string $type, int $id)
+    {
+        $query = $type === 'intern'
+            ? Intern::query()
+            : Employee::query();
+
+        return $query
+            ->with(['department', 'section', 'area', 'line', 'station'])
+            ->find($id);
     }
 
     private function buildStationSummary(string $type, int $subjectId): array

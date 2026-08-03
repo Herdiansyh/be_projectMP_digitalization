@@ -32,6 +32,7 @@ class UpdateInternRequest extends FormRequest
             'join_date'       => ['sometimes', 'date', 'before_or_equal:start_contract'],
             'start_contract'  => ['sometimes', 'date'],
             'end_contract'    => ['sometimes', 'date', 'after:start_contract'],
+            'outcome_status'  => ['sometimes', 'in:active,converted,ended'],
         ];
     }
 

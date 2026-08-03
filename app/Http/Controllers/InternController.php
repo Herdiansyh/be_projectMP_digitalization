@@ -50,6 +50,12 @@ class InternController extends Controller
             $query->where('station_id', $request->station_id);
         }
 
+        // Kecualikan intern yang sudah naik kontrak dari list, kecuali user
+        // eksplisit meminta lewat ?include_converted=1.
+        if (!$request->boolean('include_converted')) {
+            $query->where('outcome_status', '!=', 'converted');
+        }
+
         if ($request->boolean('near_expiry')) {
             $query->whereNotNull('end_contract')
                   ->whereDate('end_contract', '>=', today())
