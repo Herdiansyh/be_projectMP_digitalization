@@ -336,12 +336,19 @@ class EvaluationCriteriaController extends Controller
                                     }
 
                                     if (isset($criteriaData['scale_options']) && is_array($criteriaData['scale_options'])) {
-                                        foreach ($criteriaData['scale_options'] as $optData) {
-                                            EvaluationCriteriaScaleOptions::updateOrCreate(
-                                                ['criteria_id' => $criteriaData['id'], 'score' => $optData['value'] ?? $optData['score']],
-                                                ['description' => $optData['label'] ?? $optData['description'] ?? null]
-                                            );
-                                        }
+                                        $scaleRows = array_map(fn ($optData) => [
+                                            'criteria_id' => $criteriaData['id'],
+                                            'score' => $optData['value'] ?? $optData['score'],
+                                            'description' => $optData['label'] ?? $optData['description'] ?? null,
+                                            'created_at' => now(),
+                                            'updated_at' => now(),
+                                        ], $criteriaData['scale_options']);
+
+                                        EvaluationCriteriaScaleOptions::upsert(
+                                            $scaleRows,
+                                            ['criteria_id', 'score'],
+                                            ['description', 'updated_at']
+                                        );
                                     }
                                 }
                             }

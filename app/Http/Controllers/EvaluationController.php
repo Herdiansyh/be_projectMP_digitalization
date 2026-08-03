@@ -145,19 +145,21 @@ class EvaluationController extends Controller
 
                 // Scores dan recommendation ikut dalam transaction yang sama.
                 if ($request->filled('scores')) {
-                    foreach ($request->scores as $item) {
-                        EvaluationScore::updateOrCreate(
-                            [
-                                'evaluation_id' => $evaluation->id,
-                                'criteria_id' => $item['criteria_id'],
-                                'filled_by_role' => 'leader',
-                            ],
-                            [
-                                'score' => $item['score'],
-                                'filled_by_user_id' => $user->id,
-                            ]
-                        );
-                    }
+                    $scoreRows = array_map(fn ($item) => [
+                        'evaluation_id' => $evaluation->id,
+                        'criteria_id' => $item['criteria_id'],
+                        'filled_by_role' => 'leader',
+                        'score' => $item['score'],
+                        'filled_by_user_id' => $user->id,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ], $request->scores);
+
+                    EvaluationScore::upsert(
+                        $scoreRows,
+                        ['evaluation_id', 'criteria_id', 'filled_by_role'],
+                        ['score', 'filled_by_user_id', 'updated_at']
+                    );
                 }
 
                 if ($request->filled('recommendation')) {
@@ -294,19 +296,21 @@ class EvaluationController extends Controller
                 return $this->errorResponse('Evaluation is locked for score updates', 403);
             }
 
-            foreach ($request->scores as $item) {
-                EvaluationScore::updateOrCreate(
-                    [
-                        'evaluation_id' => $evaluation->id,
-                        'criteria_id' => $item['criteria_id'],
-                        'filled_by_role' => $filledByRole,
-                    ],
-                    [
-                        'score' => $item['score'],
-                        'filled_by_user_id' => $user->id,
-                    ]
-                );
-            }
+            $scoreRows = array_map(fn ($item) => [
+                'evaluation_id' => $evaluation->id,
+                'criteria_id' => $item['criteria_id'],
+                'filled_by_role' => $filledByRole,
+                'score' => $item['score'],
+                'filled_by_user_id' => $user->id,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ], $request->scores);
+
+            EvaluationScore::upsert(
+                $scoreRows,
+                ['evaluation_id', 'criteria_id', 'filled_by_role'],
+                ['score', 'filled_by_user_id', 'updated_at']
+            );
 
             $evaluation->load(self::FULL_RELATIONS);
 
@@ -527,16 +531,8 @@ public function extendContract(Request $request, Evaluation $evaluation): JsonRe
  
         // === TAMBAHAN INTERN: route ke service sesuai subjek evaluasi.
         // Action & status yang dihasilkan SAMA PERSIS dengan Employee.
-        // Untuk intern, cek extend_pkwt dari recommendation:
-        // - extend_pkwt = true: naik jadi employee (pakai extend())
-        // - extend_pkwt = false: tetap intern, hanya perpanjang magang (pakai extendInternOnly())
         if (!empty($evaluation->intern_id)) {
-            $extendPkwt = !empty($evaluation->recommendation) && !empty($evaluation->recommendation->extend_pkwt);
-            if ($extendPkwt) {
-                $this->internPromotionService->extend($evaluation, Auth::user(), $request->all());
-            } else {
-                $this->internPromotionService->extendInternOnly($evaluation, Auth::user(), $request->all());
-            }
+            $this->internPromotionService->extend($evaluation, Auth::user(), $request->all());
         } else {
             $this->employeeContractService->extend($evaluation, Auth::user(), $request->all());
         }
@@ -550,35 +546,7 @@ public function extendContract(Request $request, Evaluation $evaluation): JsonRe
         return $this->errorResponse($e->getMessage(), 500);
     }
 }
-
-public function extendInternContract(Request $request, Evaluation $evaluation): JsonResponse
-{
-    try {
-        $roleName = Auth::user()->roleLevel?->name;
-
-        if (!in_array($roleName, ['Admin', 'HR Admin'])) {
-            return $this->errorResponse('Unauthorized', 403);
-        }
-
-        $request->validate([
-            'extend_months' => 'required|integer|min:1',
-            'start_date' => 'required|date',
-            'notes' => 'nullable|string',
-        ]);
-
-        // Hanya untuk intern - perpanjang masa magang TANPA menjadikan employee
-        $this->internPromotionService->extendInternOnly($evaluation, Auth::user(), $request->all());
-
-        $evaluation->load(self::FULL_RELATIONS);
-
-        return $this->successResponse(new EvaluationResource($evaluation), 'Intern contract extended successfully');
-    } catch (\RuntimeException $e) {
-        return $this->errorResponse($e->getMessage(), 422);
-    } catch (Exception $e) {
-        return $this->errorResponse($e->getMessage(), 500);
-    }
-}
-
+ 
 public function closeContract(Request $request, Evaluation $evaluation): JsonResponse
 {
     try {

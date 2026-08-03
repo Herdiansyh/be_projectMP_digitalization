@@ -1,5 +1,5 @@
 @php
-    $size = 64;
+    $size = $size ?? 64;
     $center = $size / 2;
     $radius = $size / 2 - 2;
     $paths = [

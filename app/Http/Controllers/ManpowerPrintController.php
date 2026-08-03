@@ -5,11 +5,15 @@ namespace App\Http\Controllers;
 use App\Models\Employee;
 use App\Models\EmployeeAssessment;
 use App\Models\Intern;
+use App\Models\Station;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
 class ManpowerPrintController extends Controller
 {
+    // Level target tetap untuk baris STD (sementara, sesuai kesepakatan).
+    private const STD_TARGET_LEVEL = 3;
+
     public function printSingle(string $type, int $id)
     {
         abort_unless(in_array($type, ['employee', 'intern']), 404);
@@ -25,10 +29,13 @@ class ManpowerPrintController extends Controller
         ]);
     }
 
+    /**
+     * Sebelumnya: cetak kartu manpower per-orang (manpower-bulk.blade.php).
+     * Sekarang : cetak Competence Matrix, dikelompokkan per Line, mengikuti
+     *            layout dokumen "08 - PROD - 001".
+     */
     public function printBulk(Request $request)
     {
-        // Form-submit POST mengirim 'items' sebagai string JSON tunggal,
-        // bukan array biasa — decode dulu sebelum divalidasi.
         $decoded = json_decode($request->input('items'), true);
 
         $validator = Validator::make(['items' => $decoded], [
@@ -39,28 +46,91 @@ class ManpowerPrintController extends Controller
 
         abort_if($validator->fails(), 422);
 
-        $items = collect($decoded)->map(function ($item) {
-            $type = $item['subject_type'];
-            $id   = $item['subject_id'];
+        // Untuk saat ini competence matrix hanya berlaku untuk Employee
+        // (Intern belum masuk skema station/line assessment yang sama).
+        $employeeIds = collect($decoded)
+            ->where('subject_type', 'employee')
+            ->pluck('subject_id')
+            ->unique()
+            ->values();
 
-            $subject = $type === 'employee'
-                ? Employee::with(['department', 'section', 'area', 'line', 'station'])->find($id)
-                : Intern::with(['department', 'section', 'area', 'line', 'station'])->find($id);
+        abort_if($employeeIds->isEmpty(), 404, 'No valid employees to print.');
 
-            if (!$subject) {
-                return null;
-            }
+        $employees = Employee::with(['department', 'section', 'area', 'line', 'station'])
+            ->whereIn('id', $employeeIds)
+            ->get();
 
-            return [
-                'subject'        => $subject,
-                'type'           => $type,
-                'stationSummary' => $this->buildStationSummary($type, $id),
-            ];
-        })->filter()->values();
+        abort_if($employees->isEmpty(), 404, 'No valid employees found to print.');
 
-        abort_if($items->isEmpty(), 404, 'No valid manpower found to print.');
+        // Grup 1 tabel per Line, seperti contoh dokumen (LINE : Main Assy K1ZA).
+        $lineGroups = $employees
+            ->filter(fn ($e) => $e->line_id !== null)
+            ->groupBy('line_id')
+            ->map(function ($employeesInLine) {
+                $first = $employeesInLine->first();
+                $line  = $first->line;
 
-        return view('print.manpower-bulk', ['items' => $items]);
+                // Semua station yang termasuk Line ini.
+                // Tidak ada kolom urutan di tabel stations, jadi urut berdasarkan id.
+                $stations = Station::where('line_id', $line->id)
+                    ->orderBy('id')
+                    ->get();
+
+                $rows = $employeesInLine->values()->map(function ($employee) use ($stations) {
+                    $cells = $stations->map(function ($station) use ($employee) {
+                        $level = $this->latestApprovedLevel($employee->id, $station->id);
+
+                        return [
+                            'station_id' => $station->id,
+                            'filled'     => $level, // 0..4 → dipetakan ke icon donut
+                        ];
+                    });
+
+                    return [
+                        'employee' => $employee,
+                        'cells'    => $cells,
+                    ];
+                });
+
+                return [
+                    'line'         => $line,
+                    'area'         => $first->area,
+                    'department'   => $first->department,
+                    'section'      => $first->section,
+                    'stations'     => $stations,
+                    'std_level'    => self::STD_TARGET_LEVEL,
+                    'rows'         => $rows,
+                ];
+            })
+            ->values();
+
+        abort_if($lineGroups->isEmpty(), 404, 'None of the selected employees are assigned to a line yet.');
+
+        return view('print.competence-matrix', [
+            'lineGroups'  => $lineGroups,
+            'evaluatedAt' => now(),
+        ]);
+    }
+
+    /**
+     * Ambil level (0-4) dari assessment approved terbaru untuk kombinasi
+     * employee + station tertentu. Mengikuti pembulatan yang sama dengan
+     * partial manpower-content (min(4, max(0, round(final_score)))).
+     */
+    private function latestApprovedLevel(int $employeeId, int $stationId): ?int
+    {
+        $latest = EmployeeAssessment::with('matrix')
+            ->where('employee_id', $employeeId)
+            ->where('status', 'approved')
+            ->whereHas('matrix', fn ($q) => $q->where('station_id', $stationId))
+            ->orderByDesc('assessed_at')
+            ->first();
+
+        if (!$latest) {
+            return null; // belum pernah dinilai di station ini → icon kosong ("Operator baru")
+        }
+
+        return min(4, max(0, (int) round($latest->final_score)));
     }
 
     private function buildStationSummary(string $type, int $subjectId): array

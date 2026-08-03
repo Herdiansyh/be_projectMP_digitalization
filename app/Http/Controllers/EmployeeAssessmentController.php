@@ -375,6 +375,7 @@ public function mySubmissions(): JsonResponse
             'QaReviewer:id,name',
             'employee.station', 'employee.line', 'employee.area',
             'intern.station', 'intern.line', 'intern.area',
+            'scores.checkpoint.category',
         ])
         ->where('assessed_by', $user->id)
         ->orderByDesc('assessed_at')
