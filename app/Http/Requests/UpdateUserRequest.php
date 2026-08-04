@@ -32,7 +32,6 @@ class UpdateUserRequest extends FormRequest
             'department_id'  => 'nullable|exists:departments,id',
             'section_id'     => 'nullable|exists:sections,id',
             'role_level_id'  => 'nullable|exists:role_levels,id',
-            'director_id'    => 'nullable|exists:users,id',
             'is_admin'       => 'boolean',
             'can_view_manpower'     => 'boolean',
             'approver_manager_id'  => 'nullable|exists:users,id',
@@ -60,7 +59,6 @@ class UpdateUserRequest extends FormRequest
             'department_id.exists' => 'Department not found.',
             'section_id.exists'    => 'Section not found.',
             'role_level_id.exists' => 'Role level not found.',
-            'director_id.exists'   => 'Director not found.',
             'approver_section_head_id.exists' => 'Approver section head not found.',
         ];
     }

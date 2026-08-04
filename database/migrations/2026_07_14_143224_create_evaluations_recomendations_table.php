@@ -18,7 +18,7 @@ return new class extends Migration
 
             $table->string('employee_status', 20)->nullable(); 
             $table->boolean('extend_pkwt')->default(false);
-            $table->string('pkwt_number', 10)->nullable();     // 1/2/3/4, aktif jika extend_pkwt true
+            $table->string('pkwt_number', 250)->nullable();
             $table->integer('extend_months')->nullable();
             $table->text('notes')->nullable();                  // Saran / Hasil Konseling
 

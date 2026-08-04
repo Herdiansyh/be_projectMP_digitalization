@@ -25,7 +25,7 @@ class UpdateEvaluationRequest extends FormRequest
             'join_date' => 'nullable|date',
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date',
-            'pkwt' => 'nullable|string|max:10',
+            'pkwt' => 'nullable|string|max:250',
             'reminder_date' => 'nullable|date',
             'reminder_note' => 'nullable|string|max:255',
         ];

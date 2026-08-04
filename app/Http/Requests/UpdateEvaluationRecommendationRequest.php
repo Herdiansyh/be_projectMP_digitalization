@@ -18,7 +18,7 @@ class UpdateEvaluationRecommendationRequest extends FormRequest
         return [
             'employee_status' => 'nullable|in:permanen,kontrak_berakhir,perpanjang_kontrak',
             'extend_pkwt' => 'nullable|boolean',
-            'pkwt_number' => 'nullable|string|max:10',
+            'pkwt_number' => 'nullable|string|max:250',
             'extend_months' => 'nullable|integer|min:0',
             'notes' => 'nullable|string',
             'created_by' => 'nullable|exists:users,id',

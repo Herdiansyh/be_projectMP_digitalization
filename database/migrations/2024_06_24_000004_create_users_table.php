@@ -23,7 +23,6 @@ return new class extends Migration
             $table->unsignedBigInteger('section_id')->nullable();
             $table->unsignedBigInteger('area_id')->nullable();
             $table->unsignedBigInteger('role_level_id')->nullable();
-            $table->unsignedBigInteger('director_id')->nullable();
 
             $table->string('username')->unique();
             $table->string('photo')->nullable();
@@ -58,7 +57,6 @@ return new class extends Migration
             $table->index('section_id');
             $table->index('area_id');
             $table->index('role_level_id');
-            $table->index('director_id');
 
             $table->index('approver_manager_id');
             $table->index('approver_section_head_id');
@@ -94,12 +92,6 @@ return new class extends Migration
                 ->onDelete('set null');
 
             // Self Reference
-            $table->foreign('director_id')
-                ->references('id')
-                ->on('users')
-                ->onDelete('no action')
-                ->onUpdate('no action');
-
             $table->foreign('approver_manager_id')
                 ->references('id')
                 ->on('users')

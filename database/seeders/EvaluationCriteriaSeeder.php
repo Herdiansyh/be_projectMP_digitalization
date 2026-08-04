@@ -15,21 +15,13 @@ class EvaluationCriteriaSeeder extends Seeder
     {
         $groupDescription = 'Pencapaian hasil kerja dibandingkan dengan target yang telah ditentukan, dan/atau Penyelesaian laporan selama periode penilaian:';
 
+        // ── Group A: Hasil Kerja ──
         $groupA = EvaluationCriteriaGroup::updateOrCreate(
             ['code' => 'A'],
             [
                 'name' => 'Hasil Kerja',
                 'description' => $groupDescription,
                 'order' => 1,
-            ]
-        );
-
-        $groupB = EvaluationCriteriaGroup::updateOrCreate(
-            ['code' => 'B'],
-            [
-                'name' => 'Proses Kerja',
-                'description' => $groupDescription,
-                'order' => 2,
             ]
         );
 
@@ -79,6 +71,16 @@ class EvaluationCriteriaSeeder extends Seeder
                 5 => '100% dari target',
             ],
             3
+        );
+
+        // ── Group B: Proses Kerja ──
+        $groupB = EvaluationCriteriaGroup::updateOrCreate(
+            ['code' => 'B'],
+            [
+                'name' => 'Proses Kerja',
+                'description' => $groupDescription,
+                'order' => 2,
+            ]
         );
 
         $subgroupI = EvaluationCriteriaSubgroup::updateOrCreate(
@@ -224,26 +226,34 @@ class EvaluationCriteriaSeeder extends Seeder
             1
         );
 
+        $standardScale = [
+            1 => 'Sangat Kurang',
+            2 => 'Kurang',
+            3 => 'Cukup',
+            4 => 'Baik',
+            5 => 'Sangat Baik',
+        ];
+
         $subgroupIV = EvaluationCriteriaSubgroup::updateOrCreate(
             ['group_id' => $groupB->id, 'roman_code' => 'IV'],
             ['name' => 'Ketelitian', 'description' => null, 'order' => 4]
         );
 
-        $this->createCriteria($groupB, $subgroupIV, null, 3, 'standard', [], 1);
+        $this->createCriteria($groupB, $subgroupIV, null, 3, 'standard', $standardScale, 1);
 
         $subgroupV = EvaluationCriteriaSubgroup::updateOrCreate(
             ['group_id' => $groupB->id, 'roman_code' => 'V'],
             ['name' => 'Semangat Kerja', 'description' => null, 'order' => 5]
         );
 
-        $this->createCriteria($groupB, $subgroupV, null, 3, 'standard', [], 1);
+        $this->createCriteria($groupB, $subgroupV, null, 3, 'standard', $standardScale, 1);
 
         $subgroupVI = EvaluationCriteriaSubgroup::updateOrCreate(
             ['group_id' => $groupB->id, 'roman_code' => 'VI'],
             ['name' => 'Etika Kerja', 'description' => null, 'order' => 6]
         );
 
-        $this->createCriteria($groupB, $subgroupVI, null, 4, 'standard', [], 1);
+        $this->createCriteria($groupB, $subgroupVI, null, 4, 'standard', $standardScale, 1);
 
         $totalWeight = EvaluationCriteria::sum('weight');
         Log::info("EvaluationCriteriaSeeder: total weight = {$totalWeight}");
@@ -276,7 +286,7 @@ class EvaluationCriteriaSeeder extends Seeder
             ]
         );
 
-        if ($scaleType === 'custom_text') {
+        if (!empty($scaleOptions)) {
             foreach ($scaleOptions as $score => $description) {
                 EvaluationCriteriaScaleOptions::updateOrCreate(
                     [

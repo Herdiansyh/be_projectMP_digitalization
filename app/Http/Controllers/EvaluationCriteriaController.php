@@ -74,29 +74,28 @@ class EvaluationCriteriaController extends Controller
         }
     }
 
-    public function destroyGroup($id): JsonResponse
-    {
-        try {
-            $group = EvaluationCriteriaGroup::findOrFail($id);
+  public function destroyGroup($id): JsonResponse
+{
+    try {
+        $group = EvaluationCriteriaGroup::findOrFail($id);
 
-            // Check if any criteria inside this group is used in EvaluationScore
-            $criteriaIds = EvaluationCriteria::where('group_id', $id)->pluck('id');
-            if (EvaluationScore::whereIn('criteria_id', $criteriaIds)->exists()) {
-                return response()->json(['success' => false, 'message' => 'Cannot delete group because its criteria are already used in evaluations.'], 400);
-            }
-
-            $group->delete(); // This will not cascade automatically unless configured in DB, so we should delete manually or assume DB cascades. Let's do manual for safety or assume framework handles it if we don't have constraints. Better to delete criteria first.
-            EvaluationCriteria::where('group_id', $id)->delete();
-            EvaluationCriteriaSubgroup::where('group_id', $id)->delete();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Group deleted successfully'
-            ]);
-        } catch (Exception $e) {
-            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        $criteriaIds = EvaluationCriteria::where('group_id', $id)->pluck('id');
+        if (EvaluationScore::whereIn('criteria_id', $criteriaIds)->exists()) {
+            return response()->json(['success' => false, 'message' => 'Cannot delete group because its criteria are already used in evaluations.'], 400);
         }
+
+        EvaluationCriteria::where('group_id', $id)->delete();
+        EvaluationCriteriaSubgroup::where('group_id', $id)->delete();
+        $group->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Group deleted successfully'
+        ]);
+    } catch (Exception $e) {
+        return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
     }
+}
 
     public function reorderGroups(Request $request): JsonResponse
     {

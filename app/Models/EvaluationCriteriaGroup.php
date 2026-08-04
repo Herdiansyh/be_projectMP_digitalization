@@ -21,8 +21,10 @@ class EvaluationCriteriaGroup extends Model
         return $this->hasMany(EvaluationCriteriaSubgroup::class, 'group_id');
     }
 
+   
     public function criteria(): HasMany
     {
-        return $this->hasMany(EvaluationCriteria::class, 'group_id');
+        return $this->hasMany(EvaluationCriteria::class, 'group_id')
+            ->whereNull('subgroup_id');
     }
 }

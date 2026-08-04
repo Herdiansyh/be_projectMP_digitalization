@@ -28,7 +28,6 @@ class User extends Authenticatable implements JWTSubject
         'role_level_id',
         'username',
         'photo',
-        'director_id',
         'is_admin',
         'can_view_manpower',
         'approver_manager_id',
@@ -62,7 +61,6 @@ protected array $cachedPermissionKeys;
         'department_id'        => 'integer',
         'section_id'           => 'integer',
         'role_level_id'        => 'integer',
-        'director_id'          => 'integer',
         'approver_manager_id'  => 'integer',
         'approver_section_head_id' => 'integer',
         'approver_division_id' => 'integer',
@@ -100,14 +98,6 @@ protected array $cachedPermissionKeys;
     return $this->belongsTo(Area::class);
 }
     /**
-     * Get the director that owns the user.
-     */
-    public function director(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'director_id');
-    }
-
-    /**
      * Get the approver manager for the user.
      */
     public function approverManager(): BelongsTo
@@ -137,14 +127,6 @@ protected array $cachedPermissionKeys;
     public function approverDirector(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approver_director_id');
-    }
-
-    /**
-     * Get the subordinates for the user.
-     */
-    public function subordinates()
-    {
-        return $this->hasMany(User::class, 'director_id');
     }
 
     /**

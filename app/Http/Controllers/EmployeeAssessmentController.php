@@ -545,6 +545,7 @@ public function myReviews(): JsonResponse
             'station', 'line', 'area',
             'latestAssessment.assessor:id,name',
             'latestAssessment.qaReviewer:id,name',
+            'latestAssessment.scores.checkpoint.category',
         ])
         ->get()
         ->map(fn ($e) => $this->formatMonitoringItem($e, 'employee'));
@@ -553,6 +554,7 @@ public function myReviews(): JsonResponse
             'station', 'line', 'area',
             'latestAssessment.assessor:id,name',
             'latestAssessment.qaReviewer:id,name',
+            'latestAssessment.scores.checkpoint.category',
         ])
         ->get()
         ->map(fn ($i) => $this->formatMonitoringItem($i, 'intern'));

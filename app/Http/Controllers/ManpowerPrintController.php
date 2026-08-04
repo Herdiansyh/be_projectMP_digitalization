@@ -44,19 +44,24 @@ class ManpowerPrintController extends Controller
 
         $items = collect($decoded);
 
-        // Dukung dua tipe sekaligus: employee & intern. InternList mengirim
-        // subject_type=intern; EmployeeList mengirim subject_type=employee.
+        // 1) Load semua subject sekali (bukan per-cell).
         $subjects = $items->map(function ($item) {
             return $this->resolveSubject($item['subject_type'], $item['subject_id']);
         })->filter();
 
         abort_if($subjects->isEmpty(), 404, 'No valid manpower found to print.');
 
-        // Grup 1 tabel per Line.
+        // 2. Ambil semua assessment approved untuk subject yang dipilih dalam
+        // SATU batch query per tipe (employee/intern), lalu map level per-cell.
+        $employeeIds = $subjects->whereInstanceOf(Employee::class)->pluck('id')->all();
+        $internIds   = $subjects->whereInstanceOf(Intern::class)->pluck('id')->all();
+        $levelMap    = $this->buildLevelMap($employeeIds, $internIds);
+
+        // 3. Grup 1 tabel per Line.
         $lineGroups = $subjects
             ->filter(fn ($s) => $s->line_id !== null)
             ->groupBy('line_id')
-            ->map(function ($subjectsInLine) {
+            ->map(function ($subjectsInLine) use ($levelMap) {
                 $first = $subjectsInLine->first();
                 $line  = $first->line;
                 $lineAbbr = $this->abbreviateLineName($line->name ?? '');
@@ -65,11 +70,11 @@ class ManpowerPrintController extends Controller
                     ->orderBy('id')
                     ->get();
 
-                $rows = $subjectsInLine->values()->map(function ($subject) use ($stations, $lineAbbr) {
-                    $cells = $stations->map(function ($station) use ($subject) {
-                        $fkNama = $subject instanceof Intern ? 'intern_id' : 'employee_id';
+                $rows = $subjectsInLine->values()->map(function ($subject) use ($stations, $lineAbbr, $levelMap) {
+                    $fkNama = $subject instanceof Intern ? 'intern_id' : 'employee_id';
 
-                        $level = $this->latestAssessmentLevel($fkNama, $subject->id, $station->id);
+                    $cells = $stations->map(function ($station) use ($subject, $fkNama, $levelMap) {
+                        $level = $levelMap[$fkNama . '|' . $subject->id . '|' . $station->id] ?? null;
 
                         return [
                             'station_id' => $station->id,
@@ -105,24 +110,39 @@ class ManpowerPrintController extends Controller
     }
 
     /**
-     * Ambil level (0-4) dari assessment approved terbaru untuk kombinasi
-     * subjek (employee/intern) + station tertentu. Mengikuti pembulatan yang
-     * sama dengan partial manpower-content (min(4, max(0, round(final_score)))).
+     * Bangun map level {"fk|subjectId|stationId" => 0..4} untuk semua subject
+     * yang mau dicetak. Dipakai untuk menghindari N+1 query (dulu 1 query per
+     * kombinasi subject x station). Semua assessment approved dimuat Sekali
+     * plus lazy-relations-nya, jadi accessor final_score tidak nembak DB lagi.
      */
-    private function latestAssessmentLevel(string $fkColumn, int $subjectId, int $stationId): ?int
+    private function buildLevelMap(array $employeeIds, array $internIds): array
     {
-        $latest = EmployeeAssessment::with('matrix')
-            ->where($fkColumn, $subjectId)
-            ->where('status', 'approved')
-            ->whereHas('matrix', fn ($q) => $q->where('station_id', $stationId))
-            ->orderByDesc('assessed_at')
-            ->first();
+        $map = [];
 
-        if (!$latest) {
-            return null; // belum pernah dinilai di station ini → icon kosong ("Operator baru")
+        foreach (['employee' => $employeeIds, 'intern' => $internIds] as $fk => $ids) {
+            if (empty($ids)) {
+                continue;
+            }
+
+            EmployeeAssessment::with(['matrix', 'scores.checkpoint.category'])
+                ->whereIn($fk . '_id', $ids)
+                ->where('status', 'approved')
+                ->whereHas('matrix', fn ($q) => $q->whereNotNull('station_id'))
+                ->orderByDesc('assessed_at')
+                ->get()
+                ->each(function ($assessment) use (&$map, $fk) {
+                    $matrix = $assessment->matrix;
+                    if (!$matrix || $matrix->station_id === null) {
+                        return;
+                    }
+
+                    // Hasil paling baru menang (karena diurutkan desc assessed_at).
+                    $key = $fk . '|' . $assessment->{$fk . '_id'} . '|' . $matrix->station_id;
+                    $map[$key] ??= min(4, max(0, (int) round($assessment->final_score)));
+                });
         }
 
-        return min(4, max(0, (int) round($latest->final_score)));
+        return $map;
     }
 
     /**

@@ -27,7 +27,7 @@ class StoreEvaluationRequest extends FormRequest
             'join_date' => 'nullable|date',
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date',
-            'pkwt' => 'nullable|string|max:10',
+            'pkwt' => 'nullable|string|max:250',
             'reminder_date' => 'nullable|date',
             'reminder_note' => 'nullable|string|max:255',
             'scores' => 'nullable|array',
@@ -36,7 +36,7 @@ class StoreEvaluationRequest extends FormRequest
             'recommendation' => 'nullable|array',
             'recommendation.employee_status' => 'nullable|in:permanen,kontrak_berakhir,perpanjang_kontrak,promoted,not_extended',
             'recommendation.extend_pkwt' => 'nullable|boolean',
-            'recommendation.pkwt_number' => 'nullable|string|max:10',
+            'recommendation.pkwt_number' => 'nullable|string|max:250',
             'recommendation.extend_months' => 'nullable|integer|min:0',
             'recommendation.notes' => 'nullable|string',
         ];

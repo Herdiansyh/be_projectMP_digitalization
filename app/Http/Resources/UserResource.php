@@ -37,11 +37,6 @@ class UserResource extends JsonResource
                 'id'   => $this->roleLevel->id,
                 'name' => $this->roleLevel->name,
             ]),
-            'director'     => $this->whenLoaded('director', fn() => $this->director ? [
-                'id'   => $this->director->id,
-                'name' => $this->director->name,
-                'npk'  => $this->director->npk,
-            ] : null),
             'approver_manager' => $this->whenLoaded('approverManager', fn() => $this->approverManager ? [
                 'id'   => $this->approverManager->id,
                 'name' => $this->approverManager->name,

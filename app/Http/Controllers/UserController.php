@@ -24,7 +24,6 @@ class UserController extends Controller
         'department',
         'section',
         'roleLevel',
-        'director',
         'approverManager',
         'approverSectionHead',
         'approverDivision',
@@ -139,7 +138,6 @@ public function store(StoreUserRequest $request): JsonResponse
             'department_id'        => $request->department_id,
             'section_id'           => $request->section_id,
             'role_level_id'        => $request->role_level_id,
-            'director_id'          => $request->director_id,
             'is_admin'             => $request->boolean('is_admin', false),
             'can_view_manpower'    => $request->boolean('can_view_manpower', false),
             'approver_manager_id'  => $request->approver_manager_id,
@@ -202,7 +200,7 @@ public function store(StoreUserRequest $request): JsonResponse
     try {
         $user->update($request->only([
             'npk', 'name', 'username', 'email',
-            'department_id', 'section_id', 'role_level_id', 'director_id',
+            'department_id', 'section_id', 'role_level_id',
             'is_admin', 'can_view_manpower',
             'approver_manager_id', 'approver_section_head_id',
             'approver_division_id', 'approver_director_id', 'area_id',
