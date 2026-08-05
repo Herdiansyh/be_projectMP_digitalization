@@ -74,7 +74,7 @@ class ManpowerPrintController extends Controller
                     $fkNama = $subject instanceof Intern ? 'intern_id' : 'employee_id';
 
                     $cells = $stations->map(function ($station) use ($subject, $fkNama, $levelMap) {
-                        $level = $levelMap[$fkNama . '|' . $subject->id . '|' . $station->id] ?? null;
+                        $level = $levelMap[$this->buildLevelKey($fkNama, $subject->id, $station->id)] ?? null;
 
                         return [
                             'station_id' => $station->id,
@@ -137,7 +137,7 @@ class ManpowerPrintController extends Controller
                     }
 
                     // Hasil paling baru menang (karena diurutkan desc assessed_at).
-                    $key = $fk . '|' . $assessment->{$fk . '_id'} . '|' . $matrix->station_id;
+                    $key = $this->buildLevelKey($fk . '_id', $assessment->{$fk . '_id'}, $matrix->station_id);
                     $map[$key] ??= min(4, max(0, (int) round($assessment->final_score)));
                 });
         }
@@ -186,6 +186,11 @@ class ManpowerPrintController extends Controller
         return $query
             ->with(['department', 'section', 'area', 'line', 'station'])
             ->find($id);
+    }
+
+    private function buildLevelKey(string $fkName, int $subjectId, int $stationId): string
+    {
+        return $fkName . '|' . $subjectId . '|' . $stationId;
     }
 
     private function buildStationSummary(string $type, int $subjectId): array
