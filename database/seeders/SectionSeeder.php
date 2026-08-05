@@ -13,20 +13,27 @@ class SectionSeeder extends Seeder
     public function run(): void
     {
         $sections = [
-            'Finance Accounting',
-            'HR & Legal',
-            'GA & EHS',
-            'Maintenance & IT',
+            'HR',
+            'Finance, Accounting',
             'Manufacturing',
-            'Marketing',
-            'OPEX & PDCA',
-            'Process Engineering',
             'Product Engineering',
-            'QA',
-            'QC',
+            'HR, GA',
+            'Process Engineering',
+            'Quality Assurance, Quality Control, AME',
+            'Maintenance, IT',
+            'Finance',
             'MP&L',
-            'Purchasing',
+            'GA',
+            'Purchasing, MP&L, SPE',
             'PPIC',
+            'AME',
+            'Maintenance',
+            'Quality Control',
+            'Accounting',
+            'IT',
+            'SPE',
+            'Purchasing',
+            'Quality Assurance',
         ];
 
         foreach ($sections as $section) {
